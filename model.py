@@ -189,14 +189,18 @@ class Critic(nn.Module):
         self.cnn.add_module('relu2', nn.ReLU(inplace=True))
         self.cnn.add_module('conv2', nn.Conv2d(growth_rate, growth_rate, kernel_size=3, stride=1, padding=1, bias=False))
         self.cnn.add_module('pool1', nn.AvgPool2d(kernel_size=(i_h,i_w), stride=2))
-        
-        
+        self.cnn.add_module('norm3', nn.BatchNorm2d(growth_rate))
+        self.cnn.add_module('relu3', nn.ReLU(inplace=True))   
+        self.fc1 = nn.Linear(growth_rate,20)
+        #self.cnn.add_module('linear1', nn.Linear(growth_rate, 20, bias=False))
+        #self.cnn.add_module('relu4', nn.ReLU(inplace=True))   
+       
         # agent's mainhand and inventory
         self.mh_inventory = nn.Sequential()
         self.mh_inventory.add_module('norm', nn.LayerNorm(agent_state_size))
         self.mh_inventory.add_module('linear1', nn.Linear(agent_state_size, 100, bias=False))
         self.mh_inventory.add_module('relu1', nn.ReLU(inplace=True))
-        self.mh_inventory.add_module('linear2', nn.Linear(100, 50, bias=False))    
+        self.mh_inventory.add_module('linear2', nn.Linear(100, 20, bias=False))    
         self.mh_inventory.add_module('relu2', nn.ReLU(inplace=True))
                          
 
@@ -222,23 +226,20 @@ class Critic(nn.Module):
 
         # agent's actions
         self.combined_actions = nn.Sequential()
-        #self.combined_actions.add_module('norm', nn.LayerNorm(24))
+        self.combined_actions.add_module('norm', nn.LayerNorm(24))
         self.combined_actions.add_module('linear1', nn.Linear(24, 100))
         self.combined_actions.add_module('relu1', nn.ReLU(inplace=True))
-        self.combined_actions.add_module('linear2', nn.Linear(100, 50))    
+        self.combined_actions.add_module('linear2', nn.Linear(100, 20))    
         self.combined_actions.add_module('relu2', nn.ReLU(inplace=True))
 
         # agent's actions
         self.combined = nn.Sequential()
-        #self.combined.add_module('norm', nn.LayerNorm(growth_rate+100))
-        self.combined.add_module('linear1', nn.Linear(growth_rate+100, 100))
-        self.combined.add_module('relu1', nn.ReLU(inplace=True))
-        self.combined.add_module('linear2', nn.Linear(100, 50))    
-        self.combined.add_module('relu2', nn.ReLU(inplace=True))
-        self.combined.add_module('linear3', nn.Linear(50, 1))    
-        self.combined.add_module('relu3', nn.ReLU(inplace=True))
-
-
+        self.combined.add_module('norm', nn.LayerNorm(60))
+        self.combined.add_module('linear1', nn.Linear(60, 1, bias=False))
+        self.combined.add_module('relu1', nn.Tanh())
+        #self.combined.add_module('linear2', nn.Linear(25, 1, bias=False))    
+        #self.combined.add_module('relu2', nn.ReLU(inplace=True))
+    
 
         self.reset_parameters()
 
@@ -280,8 +281,7 @@ class Critic(nn.Module):
                 nn.init.uniform_(m.weight)
                 nn.init.constant_(m.bias, 0)
             elif isinstance(m, nn.Linear):
-                nn.init.xavier_uniform_(m.weight)
-                nn.init.constant_(m.bias, 0)
+                nn.init.xavier_normal_(m.weight, gain=nn.init.calculate_gain('tanh'))
 
 
        
@@ -289,7 +289,12 @@ class Critic(nn.Module):
     def forward(self, agent_state, world_state, action):
         """Build a critic (value) network that maps (state, action) pairs -> Q-values."""
                 
-    
+        x = self.cnn(world_state).squeeze(dim=2).squeeze(dim=2)
+        x = self.fc1(x)
+        x = F.relu(x)
+
+        y = self.mh_inventory(agent_state)
+           
         actions = []
         for i, a in enumerate(self.action_modules):
             if a in ["craft", "equip", "nearbyCraft", "nearbySmelt", "place"]:
@@ -305,15 +310,14 @@ class Critic(nn.Module):
 
         actions_embedded_combined = torch.cat((actions), 1)   
         z = self.combined_actions(actions_embedded_combined)
+
+
+        c = torch.cat([x,y,z], 1)
+        c = self.combined(c)
             
-        """Build an actor (policy) network that maps states -> actions."""
-        x = self.cnn(world_state).squeeze(dim=2).squeeze(dim=2)
-        y = self.mh_inventory(agent_state)
-                
-        a = torch.cat([x, y, z], 1)
-        k = self.combined(a)
-        
-        return k
+        print(c)
+
+        return c
 
 
 

@@ -250,7 +250,7 @@ class Agent():
         actions_pred, actions_pred_raw = self.actor_local(a_states, w_states)
         actor_loss = -self.critic_local(a_states, w_states, actions_pred_raw).mean()
         
-        #print("{} {} \r".format(critic_loss.item(), actor_loss.item()))
+        print("{} {} \r".format(critic_loss.item(), actor_loss.item()))
         
         # Minimize the loss
         self.actor_optimizer.zero_grad()

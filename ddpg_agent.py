@@ -153,6 +153,12 @@ class Agent():
         #self.actor_scheduler.step()
         #self.critic_scheduler.step()
 
+    def add_memory(self, e):
+        """Save experience in replay memory, and use random sample from buffer to learn."""
+                        
+        self.memory.add(e[0], e[1], e[2], e[3], e[4], e[5], e[6])
+        
+
     def learn_from_players(self, experiences):
         """Save experience in replay memory, and use random sample from buffer to learn."""
         

@@ -35,31 +35,41 @@ class Actor(nn.Module):
         self.cnn.add_module('relu2', nn.ReLU(inplace=True))
         self.cnn.add_module('conv2', nn.Conv2d(growth_rate, growth_rate, kernel_size=3, stride=1, padding=1, bias=False))
         self.cnn.add_module('pool1', nn.AvgPool2d(kernel_size=(i_h,i_w), stride=2))
-        
+        self.cnn.add_module('norm3', nn.BatchNorm2d(growth_rate))
+        self.cnn.add_module('relu3', nn.ReLU(inplace=True))   
+        self.fc1 = nn.Linear(growth_rate,20)
         
         # agent's mainhand and inventory
         self.mh_inventory = nn.Sequential()
         self.mh_inventory.add_module('norm', nn.LayerNorm(agent_state_size))
-        self.mh_inventory.add_module('linear1', nn.Linear(agent_state_size, 100))
+        self.mh_inventory.add_module('linear1', nn.Linear(agent_state_size, 100, bias=False))
         self.mh_inventory.add_module('relu1', nn.ReLU(inplace=True))
-        self.mh_inventory.add_module('linear2', nn.Linear(100, 50))   
+        self.mh_inventory.add_module('linear2', nn.Linear(100, 20, bias=False))   
         self.mh_inventory.add_module('relu2', nn.ReLU(inplace=True))
-                                                    
+
+        self.cnn_mh_inventory = nn.Sequential()
+        self.cnn_mh_inventory.add_module('norm', nn.LayerNorm(40))
+        self.cnn_mh_inventory.add_module('linear1', nn.Linear(40, 100, bias=False))
+        self.cnn_mh_inventory.add_module('relu1', nn.ReLU(inplace=True))
+        self.cnn_mh_inventory.add_module('linear2', nn.Linear(100, 40, bias=False))
+        self.cnn_mh_inventory.add_module('relu2', nn.ReLU(inplace=True))
+
+
         self.action_modules = nn.ModuleDict({
-            'attack': nn.Linear(growth_rate+50,1),
-            'back': nn.Linear(growth_rate+50,1),
-            'camera': nn.Linear(growth_rate+50,2),
-            'craft': nn.Linear(growth_rate+50,5),
-            'equip': nn.Linear(growth_rate+50,8),
-            'forward_': nn.Linear(growth_rate+50,1),
-            'jump': nn.Linear(growth_rate+50,1),
-            'left': nn.Linear(growth_rate+50,1),
-            'nearbyCraft': nn.Linear(growth_rate+50,8),
-            'nearbySmelt': nn.Linear(growth_rate+50,3),
-            'place': nn.Linear(growth_rate+50,7),
-            'right': nn.Linear(growth_rate+50,1),
-            'sneak': nn.Linear(growth_rate+50,1),
-            'sprint': nn.Linear(growth_rate+50,1)
+            'attack': nn.Linear(40,1, bias=False),
+            'back': nn.Linear(40,1, bias=False),
+            'camera': nn.Linear(40,2, bias=False),
+            'craft': nn.Linear(40,5, bias=False),
+            'equip': nn.Linear(40,8, bias=False),
+            'forward_': nn.Linear(40,1, bias=False),
+            'jump': nn.Linear(40,1, bias=False),
+            'left': nn.Linear(40,1, bias=False),
+            'nearbyCraft': nn.Linear(40,8, bias=False),
+            'nearbySmelt': nn.Linear(40,3, bias=False),
+            'place': nn.Linear(40,7, bias=False),
+            'right': nn.Linear(40,1, bias=False),
+            'sneak': nn.Linear(40,1, bias=False),
+            'sprint': nn.Linear(40,1, bias=False)
                                             })
  
         self.activation_modules = nn.ModuleDict({
@@ -89,7 +99,6 @@ class Actor(nn.Module):
                 #nn.init.constant_(m.bias, 0)
             elif isinstance(m, nn.Linear):
                 nn.init.xavier_uniform_(m.weight, gain=nn.init.calculate_gain('relu'))
-                nn.init.constant_(m.bias, 0)
             
         for m in self.mh_inventory:
             if isinstance(m, nn.Conv2d):
@@ -97,7 +106,13 @@ class Actor(nn.Module):
                 #nn.init.constant_(m.bias, 0)
             elif isinstance(m, nn.Linear):
                 nn.init.xavier_uniform_(m.weight, gain=nn.init.calculate_gain('relu'))
-                nn.init.constant_(m.bias, 0)
+ 
+        for m in self.cnn_mh_inventory:
+            if isinstance(m, nn.Conv2d):
+                torch.nn.init.xavier_normal_(m.weight, gain=nn.init.calculate_gain('relu'))
+                #nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight, gain=nn.init.calculate_gain('relu'))
 
             
         for m in self.action_modules:
@@ -106,14 +121,20 @@ class Actor(nn.Module):
                 #nn.init.constant_(m.bias, 0)
             elif isinstance(m, nn.Linear):
                 nn.init.xavier_uniform_(m.weight, gain=nn.init.calculate_gain('tanh'))
-                nn.init.constant_(m.bias, 0)
                 
                                                     
     def forward(self, agent_state, world_state):
         """Build an actor (policy) network that maps states -> actions."""
         x = self.cnn(world_state).squeeze(dim=2).squeeze(dim=2)
+        x = self.fc1(x)
+        x = F.relu(x)
+
+
         y = self.mh_inventory(agent_state)
+
+
         z = torch.cat([x, y], 1)
+        z = self.cnn_mh_inventory(z)
         
         actions = {}
         actions_raw = []
@@ -314,9 +335,7 @@ class Critic(nn.Module):
 
         c = torch.cat([x,y,z], 1)
         c = self.combined(c)
-            
-        print(c)
-
+ 
         return c
 
 

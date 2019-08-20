@@ -20,9 +20,9 @@ import torchvision.transforms as transforms
 
 BUFFER_SIZE = int(1e5)  # replay buffer size
 BATCH_SIZE = 16         # minibatch size
-GAMMA = 0.5            # discount factor
+GAMMA = 0.9            # discount factor
 TAU = 1e-2              # for soft update of target parameters
-LR_ACTOR = 1e-5         # learning rate of the actor 
+LR_ACTOR = 1e-4         # learning rate of the actor 
 LR_CRITIC = 1e-4        # learning rate of the critic
 WEIGHT_DECAY = 0.000   # L2 weight decay
 
@@ -54,20 +54,12 @@ class Agent():
         # Actor Network (w/ Target Network)
         self.actor_local = Actor(self.agent_state_size, self.world_state_size, self.action_size, self.seed).to(device)
         self.actor_target = Actor(self.agent_state_size, self.world_state_size, self.action_size, self.seed).to(device)
-        #self.actor_optimizer = optim.Adam(self.actor_local.parameters(), lr=LR_ACTOR)
-        self.actor_optimizer = optim.Adam(self.actor_local.parameters())
+        self.actor_optimizer = optim.Adam(self.actor_local.parameters(), lr=LR_ACTOR)
+        #self.actor_optimizer = optim.Adam(self.actor_local.parameters())
         self.actor_scheduler = optim.lr_scheduler.StepLR(self.actor_optimizer, step_size=200, gamma=0.99)
         
-        # Critic Network (w/ Target Network)
-        self.critic_local = Critic(self.agent_state_size, self.world_state_size, self.action_size, self.seed).to(device)
-        self.critic_target = Critic(self.agent_state_size, self.world_state_size, self.action_size, self.seed).to(device)
-        #self.critic_optimizer = optim.Adam(self.critic_local.parameters(), lr=LR_CRITIC, weight_decay=WEIGHT_DECAY)
-        self.critic_optimizer = optim.Adam(self.critic_local.parameters())
-        self.critic_scheduler = optim.lr_scheduler.StepLR(self.critic_optimizer, step_size=200, gamma=0.99)
         
-        self.hard_copy_weights(self.actor_target, self.actor_local)
-        self.hard_copy_weights(self.critic_target, self.critic_local)
-
+        
         # reward net
         self.dist_net = torch.nn.Sequential()
         self.dist_net.add_module('norm', torch.nn.LayerNorm(2*self.agent_state_size))
@@ -80,6 +72,22 @@ class Agent():
         for m in self.dist_net:
             if isinstance(m, torch.nn.Linear):
                 torch.nn.init.uniform_(m.weight)
+        
+        
+        # Critic Network (w/ Target Network)
+        self.critic_local = Critic(self.agent_state_size, self.world_state_size, self.action_size, self.seed).to(device)
+        self.critic_target = Critic(self.agent_state_size, self.world_state_size, self.action_size, self.seed).to(device)
+
+        print(self.critic_local.parameters())
+        print(self.dist_net.parameters())
+        
+        params = list(self.critic_local.parameters()) + list(self.dist_net.parameters())
+        #self.critic_optimizer = optim.Adam(self.critic_local.parameters(), lr=LR_CRITIC, weight_decay=WEIGHT_DECAY)
+        self.critic_optimizer = optim.Adam(params, lr=LR_CRITIC)
+        self.critic_scheduler = optim.lr_scheduler.StepLR(self.critic_optimizer, step_size=200, gamma=0.99)
+        
+        self.hard_copy_weights(self.actor_target, self.actor_local)
+        self.hard_copy_weights(self.critic_target, self.critic_local)
 
 
         # Noise process

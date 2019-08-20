@@ -117,7 +117,7 @@ def extract_data_from_dict_single(current_state, action, reward, next_state, don
 
 
     experience = (np.array(agent_state), np.array(swap_world_state), np.array(agent_actions), reward, np.array(agent_state_next), np.array(swap_next_world_state), done)
-    print(agent_state_next)
+    #print(agent_state_next)
 
     return experience
  
@@ -160,7 +160,7 @@ def extract_data_from_dict(current_state, action, reward, next_state, done):
     #flat_list = [item for sublist in agent_state for item in sublist]
     vertical_agent_state = [np.vstack(item) for item in agent_state]
     concat_agent_state = np.concatenate(vertical_agent_state, axis=1)
-    
+    #print(concat_agent_state)
     #[print(item.shape) for item in pov]
     
     swap_world_state = [np.swapaxes(item,0,2) for item in pov]
@@ -284,20 +284,23 @@ for current_state, action, reward, next_state, done \
         i = i+1
         if i%3==0:
             i=0
-            continue
+            #continue
         done = np.delete(done, -1)
         experiences = extract_data_from_dict(current_state, action, reward, next_state, done)
         agent.learn_from_players(experiences)
         
+        if (np.any(reward)):
+        	print("reward...")
         
-        if i==1:
-        	action_1, action_1_raw = agent.act(mainhand_a, inventory_a, pov_a)
-        else:
-        	action_1 = env.action_space.sample()
+        action_1, action_1_raw = agent.act(mainhand_a, inventory_a, pov_a)
+        #action_1 = env.action_space.sample()
         
-        print(action_1)
+        #print(action_1)
         obs_1, reward_1, done_1, _ = env.step(action_1)
         
+        if (reward_1 >0):
+        	print("REWARD !!!!!!!!!!!!!!!!!!!!!!")
+
         experience = extract_data_from_dict_single(obs_a, action_1, reward_1, obs_1, done_1)
         agent.add_memory(experience)
 

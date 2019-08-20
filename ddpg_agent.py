@@ -228,6 +228,20 @@ class Agent():
         a_next_states = a_next_states_.to(device)   
         w_next_states = w_next_states_.to(device) 
 
+        
+        a_state_change = torch.eq(a_states, a_next_states).int()
+        
+        #ones = torch.ones_like(a_state_change)
+        #a_state_change = ones-a_state_change
+        a_state_change = a_state_change.sum(dim=1,keepdim=True).float()/21
+        #threshold = torch.nn.Threshold(0, 1000)
+        #a_state_change = threshold(a_state_change)
+
+        w_state_change = torch.eq(w_states, w_next_states).int()
+        ones = torch.ones_like(w_state_change)
+        w_state_change = ones-w_state_change
+        w_state_change = w_state_change.sum(dim=(1,2,3)).float()
+
 
         # ---------------------------- update critic ---------------------------- #
         # Get predicted next-state actions and Q values from target models
@@ -235,14 +249,17 @@ class Agent():
         #print(actions_next_raw)        
         Q_targets_next = self.critic_target(a_next_states, w_next_states, actions_next_raw)
         
-        
+
         # Compute Q targets for current states (y_i)
-        Q_targets = rewards + (gamma * Q_targets_next * (1 - dones))      
+        Q_targets = rewards + (gamma * Q_targets_next * (1 - dones)) + a_state_change 
         Q_expected = self.critic_local(a_states, w_states, actions)
         #print("{} {} \r".format(Q_targets_next, Q_expected))
         #print("{} {}. \r".format(Q_expected.mean().item(), Q_targets.mean().item()))
         
         # Compute critic loss
+        #print(a_state_change.shape)
+        #print(Q_expected.shape)
+        #print(Q_targets.shape)
         critic_loss = F.mse_loss(Q_expected, Q_targets)   
                 
         # Minimize the loss

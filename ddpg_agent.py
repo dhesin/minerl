@@ -68,6 +68,20 @@ class Agent():
         self.hard_copy_weights(self.actor_target, self.actor_local)
         self.hard_copy_weights(self.critic_target, self.critic_local)
 
+        # reward net
+        self.dist_net = torch.nn.Sequential()
+        self.dist_net.add_module('norm', torch.nn.LayerNorm(2*self.agent_state_size))
+        self.dist_net.add_module('linear1', torch.nn.Linear(2*self.agent_state_size, 50, bias=False))
+        self.dist_net.add_module('tanh1', torch.nn.Tanh())
+        self.dist_net.add_module('linear2', torch.nn.Linear(50, 1, bias=False))
+        self.dist_net.add_module('tanh2', torch.nn.Tanh())
+        self.dist_net.to(device)
+
+        for m in self.dist_net:
+            if isinstance(m, torch.nn.Linear):
+                torch.nn.init.uniform_(m.weight)
+
+
         # Noise process
         self.noise = OUNoise(self.action_size, self.seed)
 
@@ -229,18 +243,24 @@ class Agent():
         w_next_states = w_next_states_.to(device) 
 
         
-        a_state_change = torch.eq(a_states, a_next_states).int()
+        #a_state_change = torch.eq(a_states, a_next_states).int()
         
         #ones = torch.ones_like(a_state_change)
         #a_state_change = ones-a_state_change
-        a_state_change = a_state_change.sum(dim=1,keepdim=True).float()/21
+        #a_state_change = a_state_change.sum(dim=1,keepdim=True).float()/21
+        #cos_dis = torch.nn.CosineSimilarity(dim=1, eps=1e-6)
+        states_concat = torch.cat((a_states, a_next_states), dim=1)
+
+        a_state_change = self.dist_net(states_concat)
+        #a_state_change = cos_dis(a_states, a_next_states)
+        #a_state_change = a_state_change.unsqueeze(dim=1)
+        #normalize = torch.nn.LayerNorm(1).to(device)
+        #a_state_change = normalize(a_state_change)
+        
+
         #threshold = torch.nn.Threshold(0, 1000)
         #a_state_change = threshold(a_state_change)
 
-        w_state_change = torch.eq(w_states, w_next_states).int()
-        ones = torch.ones_like(w_state_change)
-        w_state_change = ones-w_state_change
-        w_state_change = w_state_change.sum(dim=(1,2,3)).float()
 
 
         # ---------------------------- update critic ---------------------------- #
@@ -273,7 +293,7 @@ class Agent():
         actions_pred, actions_pred_raw = self.actor_local(a_states, w_states)
         actor_loss = -self.critic_local(a_states, w_states, actions_pred_raw).mean()
         
-        print("{} {} \r".format(critic_loss.item(), actor_loss.item()))
+        print("{} {} {} \r".format(critic_loss.item(), actor_loss.item(), a_state_change.mean()))
         
         # Minimize the loss
         self.actor_optimizer.zero_grad()
@@ -341,6 +361,9 @@ class ReplayBuffer:
     
     def add(self, state, state_2, action, reward, next_state, next_state_2, done):
         """Add a new experience to memory."""
+        assert(len(state)==len(next_state))
+        assert(len(state_2)==len(next_state_2))
+        
         e = self.experience(state, state_2, action, reward, next_state, next_state_2, done)
         self.memory.append(e)
     

@@ -17,7 +17,7 @@ import ddpg_agent
 reload(ddpg_agent)
 from ddpg_agent import Agent
 
-# logging.basicConfig(level=logging.DEBUG)
+#logging.basicConfig(level=logging.DEBUG)
 #pil_img = transforms.ToPILImage()(pov)
 #imshow(pil_img)
 
@@ -267,8 +267,8 @@ action_s = len(list(action_a.values()))
 
     
 data = minerl.data.make(
-    'MineRLObtainDiamond-v0',
-    data_dir='/home/desin/minerl/data/')
+    'MineRLObtainDiamondDense-v0',
+    data_dir='/workspace/data')
 
 agent = Agent(agent_state_size=21, world_state_size=(64, 64, 3), action_size=14, random_seed=0)
 
@@ -277,6 +277,8 @@ agent = Agent(agent_state_size=21, world_state_size=(64, 64, 3), action_size=14,
 
 # Iterate through a single epoch gathering sequences of at most 32 steps
 i=0
+done_1=False
+active_reward=0
 for current_state, action, reward, next_state, done \
     in data.sarsd_iter(
         num_epochs=1, max_sequence_len=32):
@@ -290,21 +292,29 @@ for current_state, action, reward, next_state, done \
         agent.learn_from_players(experiences)
         
         if (np.any(reward)):
-        	print("reward...")
+        	print("reward...{} ".format(active_reward))
         
-        action_1, action_1_raw = agent.act(mainhand_a, inventory_a, pov_a)
-        #action_1 = env.action_space.sample()
+        if (done_1==False):
+            action_1, action_1_raw = agent.act(mainhand_a, inventory_a, pov_a)
+            obs_1, reward_1, done_1, info = env.step(action_1)
         
-        #print(action_1)
-        obs_1, reward_1, done_1, _ = env.step(action_1)
-        
-        if (reward_1 >0):
-        	print("REWARD !!!!!!!!!!!!!!!!!!!!!!")
+            if (reward_1 >0):
+                active_reward = active_reward+1
+                print("REWARD !!!!!!!!!!!!!!!!!!!!!!")
+        else:
+            obs_1 = env.reset()
+            done_1=False
+            print("RESET ----------------")
 
-        experience = extract_data_from_dict_single(obs_a, action_1, reward_1, obs_1, done_1)
-        agent.add_memory(experience)
+        #action_1 = env.action_space.sample()
+        #print(action_1)
+        #experience = extract_data_from_dict_single(obs_a, action_1, reward_1, obs_1, done_1)
+        #agent.add_memory(experience)
 
         obs_a = obs_1
+        mainhand_a = obs_a['equipped_items']['mainhand']
+        inventory_a = obs_a['inventory']
+        pov_a = obs_a['pov']
 
         env.render()
 
@@ -313,4 +323,7 @@ for current_state, action, reward, next_state, done \
         #      "can be < max_sequence_len", len(reward))
 
 
+
+
+print("DONE")
 

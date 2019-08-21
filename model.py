@@ -199,8 +199,9 @@ class Critic(nn.Module):
         n_c = world_state_size[2]
         i_h = world_state_size[0]
         i_w = world_state_size[1]
-                     
-            
+        
+        self.previous_agent_state = None
+
         # agent's pov
         self.cnn = nn.Sequential()
         self.cnn.add_module('norm1', nn.BatchNorm2d(n_c))
@@ -262,6 +263,14 @@ class Critic(nn.Module):
         #self.combined.add_module('relu2', nn.ReLU(inplace=True))
     
 
+        # reward predictor net
+        self.dist_net = torch.nn.Sequential()
+        self.dist_net.add_module('norm', torch.nn.LayerNorm(2*agent_state_size))
+        self.dist_net.add_module('linear1', torch.nn.Linear(2*agent_state_size, 50, bias=False))
+        self.dist_net.add_module('tanh1', torch.nn.Tanh())
+        self.dist_net.add_module('linear2', torch.nn.Linear(50, 1, bias=False))
+        self.dist_net.add_module('tanh2', torch.nn.Tanh())
+
         self.reset_parameters()
 
     def reset_parameters(self):
@@ -304,7 +313,9 @@ class Critic(nn.Module):
             elif isinstance(m, nn.Linear):
                 nn.init.xavier_normal_(m.weight, gain=nn.init.calculate_gain('tanh'))
 
-
+        for m in self.dist_net:
+            if isinstance(m, torch.nn.Linear):
+                torch.nn.init.xavier_uniform_(m.weight, gain=torch.nn.init.calculate_gain('tanh'))
        
 
     def forward(self, agent_state, world_state, action):
@@ -336,7 +347,15 @@ class Critic(nn.Module):
         c = torch.cat([x,y,z], 1)
         c = self.combined(c)
  
-        return c
+        # curiosity reward
+        if self.previous_agent_state is None:
+            self.previous_agent_state = torch.zeros_like(agent_state)
+
+        states_concat = torch.cat((self.previous_agent_state, agent_state), dim=1)
+        a_state_change_reward = self.dist_net(states_concat)
+        self.previous_agent_state = agent_state
+
+        return c, a_state_change_reward
 
 
 

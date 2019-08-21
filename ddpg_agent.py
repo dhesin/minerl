@@ -22,8 +22,8 @@ BUFFER_SIZE = int(1e5)  # replay buffer size
 BATCH_SIZE = 16         # minibatch size
 GAMMA = 0.9            # discount factor
 TAU = 1e-2              # for soft update of target parameters
-LR_ACTOR = 1e-4         # learning rate of the actor 
-LR_CRITIC = 1e-4        # learning rate of the critic
+LR_ACTOR = 1e-5         # learning rate of the actor 
+LR_CRITIC = 1e-6        # learning rate of the critic
 WEIGHT_DECAY = 0.000   # L2 weight decay
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -59,31 +59,13 @@ class Agent():
         self.actor_scheduler = optim.lr_scheduler.StepLR(self.actor_optimizer, step_size=200, gamma=0.99)
         
         
-        
-        # reward net
-        self.dist_net = torch.nn.Sequential()
-        self.dist_net.add_module('norm', torch.nn.LayerNorm(2*self.agent_state_size))
-        self.dist_net.add_module('linear1', torch.nn.Linear(2*self.agent_state_size, 50, bias=False))
-        self.dist_net.add_module('tanh1', torch.nn.Tanh())
-        self.dist_net.add_module('linear2', torch.nn.Linear(50, 1, bias=False))
-        self.dist_net.add_module('tanh2', torch.nn.Tanh())
-        self.dist_net.to(device)
-
-        for m in self.dist_net:
-            if isinstance(m, torch.nn.Linear):
-                torch.nn.init.uniform_(m.weight)
-        
-        
         # Critic Network (w/ Target Network)
         self.critic_local = Critic(self.agent_state_size, self.world_state_size, self.action_size, self.seed).to(device)
         self.critic_target = Critic(self.agent_state_size, self.world_state_size, self.action_size, self.seed).to(device)
 
-        print(self.critic_local.parameters())
-        print(self.dist_net.parameters())
-        
-        params = list(self.critic_local.parameters()) + list(self.dist_net.parameters())
-        #self.critic_optimizer = optim.Adam(self.critic_local.parameters(), lr=LR_CRITIC, weight_decay=WEIGHT_DECAY)
-        self.critic_optimizer = optim.Adam(params, lr=LR_CRITIC)
+        #params = list(self.critic_local.parameters()) + list(self.dist_net.parameters())
+        self.critic_optimizer = optim.Adam(self.critic_local.parameters(), lr=LR_CRITIC, weight_decay=WEIGHT_DECAY)
+        #self.critic_optimizer = optim.Adam(params, lr=LR_CRITIC)
         self.critic_scheduler = optim.lr_scheduler.StepLR(self.critic_optimizer, step_size=200, gamma=0.99)
         
         self.hard_copy_weights(self.actor_target, self.actor_local)
@@ -251,36 +233,17 @@ class Agent():
         w_next_states = w_next_states_.to(device) 
 
         
-        #a_state_change = torch.eq(a_states, a_next_states).int()
-        
-        #ones = torch.ones_like(a_state_change)
-        #a_state_change = ones-a_state_change
-        #a_state_change = a_state_change.sum(dim=1,keepdim=True).float()/21
-        #cos_dis = torch.nn.CosineSimilarity(dim=1, eps=1e-6)
-        states_concat = torch.cat((a_states, a_next_states), dim=1)
-
-        a_state_change = self.dist_net(states_concat)
-        #a_state_change = cos_dis(a_states, a_next_states)
-        #a_state_change = a_state_change.unsqueeze(dim=1)
-        #normalize = torch.nn.LayerNorm(1).to(device)
-        #a_state_change = normalize(a_state_change)
-        
-
-        #threshold = torch.nn.Threshold(0, 1000)
-        #a_state_change = threshold(a_state_change)
-
-
 
         # ---------------------------- update critic ---------------------------- #
         # Get predicted next-state actions and Q values from target models
         actions_next, actions_next_raw = self.actor_target(a_next_states, w_next_states)
         #print(actions_next_raw)        
-        Q_targets_next = self.critic_target(a_next_states, w_next_states, actions_next_raw)
+        Q_targets_next, _ = self.critic_target(a_next_states, w_next_states, actions_next_raw)
         
 
         # Compute Q targets for current states (y_i)
-        Q_targets = rewards + (gamma * Q_targets_next * (1 - dones)) + a_state_change 
-        Q_expected = self.critic_local(a_states, w_states, actions)
+        Q_expected, Q_state_change_reward = self.critic_local(a_states, w_states, actions)
+        Q_targets = rewards + (gamma * Q_targets_next * (1 - dones))
         #print("{} {} \r".format(Q_targets_next, Q_expected))
         #print("{} {}. \r".format(Q_expected.mean().item(), Q_targets.mean().item()))
         
@@ -299,9 +262,10 @@ class Agent():
         # ---------------------------- update actor ---------------------------- #
         # Compute actor loss
         actions_pred, actions_pred_raw = self.actor_local(a_states, w_states)
-        actor_loss = -self.critic_local(a_states, w_states, actions_pred_raw).mean()
-        
-        print("{} {} {} \r".format(critic_loss.item(), actor_loss.item(), a_state_change.mean()))
+        actor_loss, state_change_reward = self.critic_local(a_states, w_states, actions_pred_raw)
+        actor_loss = -actor_loss.mean()
+
+        print("{} {} {} \r".format(critic_loss.item(), actor_loss.item(), state_change_reward.mean()))
         
         # Minimize the loss
         self.actor_optimizer.zero_grad()

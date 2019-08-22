@@ -206,7 +206,7 @@ class Agent():
             
         self.actor_local.train()
         
-        return action, action_raw
+        return action, action_raw, agent_state
 
     def reset(self):
         self.noise.reset()

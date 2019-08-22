@@ -268,7 +268,7 @@ action_s = len(list(action_a.values()))
     
 data = minerl.data.make(
     'MineRLObtainDiamondDense-v0',
-    data_dir="/home/desin/minerl/data")
+    data_dir="/home/darici/minerl/minerl/data")
 
 agent = Agent(agent_state_size=21, world_state_size=(64, 64, 3), action_size=14, random_seed=0)
 
@@ -281,7 +281,7 @@ done_1=False
 active_reward=0
 for current_state, action, reward, next_state, done \
     in data.sarsd_iter(
-        num_epochs=1, max_sequence_len=32):
+        num_epochs=10, max_sequence_len=32):
 
         i = i+1
         if i%3==0:

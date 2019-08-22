@@ -335,7 +335,7 @@ class Agent():
 
 
         actor_loss = torch.abs(n_wsd-n_wsd_predict)+torch.abs(n_asd-n_asd_predict)
-        actor_loss = actor_loss.sum()
+        actor_loss = (actor_loss-rewards).sum()
  
 
         print("{} {} \r".format(critic_loss.item(), actor_loss.item()))
@@ -443,6 +443,11 @@ class NaivePrioritizedBuffer(object):
     
     def add(self, state, state_2, action, reward, next_state, next_state_2, done):
         assert state.ndim == next_state.ndim
+
+        if (state.shape[0] != 21):
+            print(state)
+            assert(0)
+
         state      = np.expand_dims(state, 0)
         next_state = np.expand_dims(next_state, 0)
                 

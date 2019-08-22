@@ -88,7 +88,22 @@ class Actor(nn.Module):
             'sneak': nn.Tanh(),
             'sprint': nn.Tanh(),
         })
-    
+
+        self.next_state_predict_w_cnn = nn.Sequential()
+        self.next_state_predict_w_cnn.add_module('norm', nn.LayerNorm(20+15))
+        self.next_state_predict_w_cnn.add_module('linear1', nn.Linear(20+15, 100, bias=False))
+        self.next_state_predict_w_cnn.add_module('relu1', nn.ReLU(inplace=True))
+        self.next_state_predict_w_cnn.add_module('linear2', nn.Linear(100, 20, bias=False))
+        self.next_state_predict_w_cnn.add_module('relu2', nn.ReLU(inplace=True))
+ 
+        self.next_state_predict_w_agent = nn.Sequential()
+        self.next_state_predict_w_agent.add_module('norm', nn.LayerNorm(20+15))
+        self.next_state_predict_w_agent.add_module('linear1', nn.Linear(20+15, 100, bias=False))
+        self.next_state_predict_w_agent.add_module('relu1', nn.ReLU(inplace=True))
+        self.next_state_predict_w_agent.add_module('linear2', nn.Linear(100, 20, bias=False))
+        self.next_state_predict_w_agent.add_module('relu2', nn.ReLU(inplace=True))
+
+
         self.reset_parameters()
 
     def reset_parameters(self):
@@ -122,18 +137,32 @@ class Actor(nn.Module):
             elif isinstance(m, nn.Linear):
                 nn.init.xavier_uniform_(m.weight, gain=nn.init.calculate_gain('tanh'))
                 
+        for m in self.next_state_predict_w_cnn:
+            if isinstance(m, nn.Conv2d):
+                torch.nn.init.xavier_normal_(m.weight, gain=nn.init.calculate_gain('tanh'))
+                #nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight, gain=nn.init.calculate_gain('relu'))
+ 
+        for m in self.next_state_predict_w_agent:
+            if isinstance(m, nn.Conv2d):
+                torch.nn.init.xavier_normal_(m.weight, gain=nn.init.calculate_gain('tanh'))
+                #nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight, gain=nn.init.calculate_gain('relu'))
+
                                                     
     def forward(self, agent_state, world_state):
         """Build an actor (policy) network that maps states -> actions."""
         x = self.cnn(world_state).squeeze(dim=2).squeeze(dim=2)
         x = self.fc1(x)
-        x = F.relu(x)
+        wsd = F.relu(x)  # world state descriptor
 
 
-        y = self.mh_inventory(agent_state)
+        asd = self.mh_inventory(agent_state) # agent state descriptor
 
 
-        z = torch.cat([x, y], 1)
+        z = torch.cat([wsd, asd], 1)
         z = self.cnn_mh_inventory(z)
         
         actions = {}
@@ -175,14 +204,29 @@ class Actor(nn.Module):
             elif action == "camera":
                 actions[action] = out[0].tolist()
 
-            
-
-
-        
+                   
         actions_raw = torch.cat(actions_raw, dim=1)
+
+        z = torch.cat([wsd, actions_raw], 1)
+        n_wsd_predict = self.next_state_predict_w_cnn(z)
+
+        z = torch.cat([asd, actions_raw], 1)
+        n_asd_predict = self.next_state_predict_w_agent(z)
         
         
-        return actions, actions_raw
+        return actions, actions_raw, n_wsd_predict, n_asd_predict
+
+    def get_wsd(self, world_state):
+
+        x = self.cnn(world_state).squeeze(dim=2).squeeze(dim=2)
+        x = self.fc1(x)
+        wsd = F.relu(x)  # world state descriptor
+        return wsd
+
+    def get_asd(self, agent_state):
+        asd = self.mh_inventory(agent_state) # agent state descriptor
+        return asd
+
 
 
 class Critic(nn.Module):

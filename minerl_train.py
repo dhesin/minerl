@@ -268,7 +268,7 @@ action_s = len(list(action_a.values()))
     
 data = minerl.data.make(
     'MineRLObtainDiamondDense-v0',
-    data_dir="/home/darici/minerl/minerl/data")
+    data_dir="/home/desin/minerl/data")
 
 agent = Agent(agent_state_size=21, world_state_size=(64, 64, 3), action_size=14, random_seed=0)
 

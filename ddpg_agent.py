@@ -177,10 +177,10 @@ class Agent():
             
             experiences = self.memory.sample() 
             (states, states_2, actions, rewards, next_states, next_states_2, dones) = experiences           
-            self.learn(experiences, GAMMA)
+            self.learn_2(experiences, GAMMA)
             
             experiences = self.memory.sample()
-            self.learn(experiences, GAMMA)
+            self.learn_2(experiences, GAMMA)
 
         #self.actor_scheduler.step()
         #self.critic_scheduler.step()
@@ -202,7 +202,7 @@ class Agent():
         
         self.actor_local.eval()
         with torch.no_grad():
-            action, action_raw = self.actor_local(s1,s2)
+            action, action_raw, _ , _ = self.actor_local(s1,s2)
             
         self.actor_local.train()
         
@@ -275,7 +275,80 @@ class Agent():
 
         # ----------------------- update target networks ----------------------- #
         self.soft_update(self.critic_local, self.critic_target, TAU)
-        self.soft_update(self.actor_local, self.actor_target, TAU)                     
+        self.soft_update(self.actor_local, self.actor_target, TAU)     
+
+    def learn_2(self, experiences, gamma):
+        """Update policy and value parameters using given batch of experience tuples.
+        Q_targets = r + γ * critic_target(next_state, actor_target(next_state))
+        where:
+            actor_target(state) -> action
+            critic_target(state, action) -> Q-value
+
+        Params
+        ======
+            experiences (Tuple[torch.Tensor]): tuple of (s, a, r, s', done) tuples 
+            gamma (float): discount factor
+        """
+        #states, actions, rewards, next_states, dones, indices, weights = experiences
+        ( a_states_, w_states_, actions, rewards, a_next_states_, w_next_states_, dones ) = experiences
+                
+        a_states = a_states_.to(device)   
+        w_states = w_states_.to(device) 
+
+        a_next_states = a_next_states_.to(device)   
+        w_next_states = w_next_states_.to(device) 
+
+        
+
+        # ---------------------------- update critic ---------------------------- #
+        # Get predicted next-state actions and Q values from target models
+        actions_next, actions_next_raw, _, _ = self.actor_target(a_next_states, w_next_states)
+        #print(actions_next_raw)        
+        Q_targets_next, _ = self.critic_target(a_next_states, w_next_states, actions_next_raw)
+        
+
+        # Compute Q targets for current states (y_i)
+        Q_expected, Q_state_change_reward = self.critic_local(a_states, w_states, actions)
+        Q_targets = rewards + (gamma * Q_targets_next * (1 - dones))
+        #print("{} {} \r".format(Q_targets_next, Q_expected))
+        #print("{} {}. \r".format(Q_expected.mean().item(), Q_targets.mean().item()))
+        
+        # Compute critic loss
+        #print(a_state_change.shape)
+        #print(Q_expected.shape)
+        #print(Q_targets.shape)
+        critic_loss = F.mse_loss(Q_expected, Q_targets)   
+                
+        # Minimize the loss
+        self.critic_optimizer.zero_grad()
+        critic_loss.backward()
+        #torch.nn.utils.clip_grad_norm_(self.critic_local.parameters(), 1)
+        self.critic_optimizer.step()
+
+        # ---------------------------- update actor ---------------------------- #
+        # Compute actor loss
+        actions_pred, actions_pred_raw, n_wsd_predict, n_asd_predict = self.actor_local(a_states, w_states)
+
+        #get next state descriptors
+        n_wsd = self.actor_local.get_wsd(w_next_states)
+        n_asd = self.actor_local.get_asd(a_next_states)
+
+
+        actor_loss = torch.abs(n_wsd-n_wsd_predict)+torch.abs(n_asd-n_asd_predict)
+        actor_loss = actor_loss.sum()
+ 
+
+        print("{} {} \r".format(critic_loss.item(), actor_loss.item()))
+        
+        # Minimize the loss
+        self.actor_optimizer.zero_grad()
+        actor_loss.backward()
+        #torch.nn.utils.clip_grad_norm_(self.actor_local.parameters(), 1)
+        self.actor_optimizer.step()
+
+        # ----------------------- update target networks ----------------------- #
+        self.soft_update(self.critic_local, self.critic_target, TAU)
+        self.soft_update(self.actor_local, self.actor_target, TAU)                        
 
     def soft_update(self, local_model, target_model, tau):
         """Soft update model parameters.

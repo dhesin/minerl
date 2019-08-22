@@ -251,7 +251,7 @@ def extract_data_from_dict(current_state, action, reward, next_state, done):
  
 
 
-env = gym.make("MineRLObtainDiamond-v0") 
+env = gym.make("MineRLObtainDiamondDense-v0") 
 
 obs_a = env.reset()
 

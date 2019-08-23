@@ -269,14 +269,15 @@ action_s = len(list(action_a.values()))
     
 data = minerl.data.make(
     'MineRLObtainDiamondDense-v0',
-    data_dir="/home/desin/minerl/data")
+    data_dir="/home/darici/minerl/minerl/data")
 
 agent = Agent(agent_state_size=21, world_state_size=(64, 64, 3), action_size=14, random_seed=0)
 
-action_list =[]
+action_list = np.zeros((action_s+1, 10), dtype=int)
 action_list_names = ("attack", "back", "camera_0", "camera_1", "craft", "equip",
                      "forward", "jump", "left", "nearbyCraft", "nearbySmelt", 
                      "place", "right", "sneak", "sprint")
+action_counts = {}
 agent_state_list_names = ['damage', 'maxDamage', 'type', 'coal', 'cobblestone', 'crafting_table', 
                     'dirt', 'furnace','iron_axe', 'iron_ingot', 'iron_ore', 'iron_pickaxe', 
                     'log', 'planks', 'stick', 'stone', 'stone_axe', 'stone_pickaxe', 
@@ -287,7 +288,7 @@ agent_state_list = []
 pyplot.ion()
 pyplot.show()
 fig= pyplot.figure()
-fig.set_size_inches(16, 8)
+fig.set_size_inches(12, 6)
 
 
 # Iterate through a single epoch gathering sequences of at most 32 steps
@@ -316,12 +317,29 @@ for current_state, action, reward, next_state, done \
                 active_reward = active_reward+1
                 print("REWARD !!!!!!!!!!!!!!!!!!!!!!")
 
-            action_list.append(action_1_raw.numpy())
-            agent_state_list.append(agent_state_raw)
+            print(action_1_raw[0].cpu())
+            zeros =np.zeros((action_s+1,10), dtype=int)
+            print(zeros)
+            one_hot_actions = zeros[np.arange(action_s+1), action_1_raw[0].cpu()]
+            print(one_hot_actions)
+
+
+            action_list = action_list+one_hot_actions
 
             if (i%10==0):
-                for xe, ye in zip(action_list_names, [[(action_list[li])[0,ci]  for li in range(len(action_list))] for ci in range(len(action_list_names)) ]):
-                    pyplot.scatter([xe] * len(ye), ye)
+
+                for i,x in enumerate(action_list_names):
+
+                    pyplot.scatter(action_list_names[i]*10, np.arange(10), s=one_hot_actions[i,:])
+
+                # for xe, ye in zip(action_list_names, [[(action_list[li])[0,ci]  for li in range(len(action_list))] for ci in range(len(action_list_names)) ]):
+                #     for i,x in enumerate(xe):
+                #         print(i)
+                #         ye_list = ye[i].tolist()
+                #         print([ye[i].tolist()])
+                #         action_counts[x,ye[i-1][0]] = action_counts.get([x,ye[i-1][0]], 0)+1
+
+                #     pyplot.scatter([xe] * len(ye), ye)
 
                 pyplot.draw()
                 pyplot.pause(0.001)

@@ -8,6 +8,7 @@ from collections import deque, namedtuple
 
 
 from matplotlib.pyplot import imshow
+import matplotlib.pyplot as pyplot
 import numpy as np
 from PIL import Image
 from ddpg_agent import Agent
@@ -268,11 +269,25 @@ action_s = len(list(action_a.values()))
     
 data = minerl.data.make(
     'MineRLObtainDiamondDense-v0',
-    data_dir="/home/darici/minerl/minerl/data")
+    data_dir="/home/desin/minerl/data")
 
 agent = Agent(agent_state_size=21, world_state_size=(64, 64, 3), action_size=14, random_seed=0)
 
+action_list =[]
+action_list_names = ("attack", "back", "camera_0", "camera_1", "craft", "equip",
+                     "forward", "jump", "left", "nearbyCraft", "nearbySmelt", 
+                     "place", "right", "sneak", "sprint")
+agent_state_list_names = ['damage', 'maxDamage', 'type', 'coal', 'cobblestone', 'crafting_table', 
+                    'dirt', 'furnace','iron_axe', 'iron_ingot', 'iron_ore', 'iron_pickaxe', 
+                    'log', 'planks', 'stick', 'stone', 'stone_axe', 'stone_pickaxe', 
+                    'torch', 'wooden_axe', 'wooden_pickaxe']
+agent_state_list = []
 
+
+pyplot.ion()
+pyplot.show()
+fig= pyplot.figure()
+fig.set_size_inches(16, 8)
 
 
 # Iterate through a single epoch gathering sequences of at most 32 steps
@@ -284,8 +299,7 @@ for current_state, action, reward, next_state, done \
         num_epochs=10, max_sequence_len=32):
 
         i = i+1
-        if i%3==0:
-            i=0
+
             #continue
         done = np.delete(done, -1)
         experiences = extract_data_from_dict(current_state, action, reward, next_state, done)
@@ -295,12 +309,23 @@ for current_state, action, reward, next_state, done \
         	print("reward...{} ".format(active_reward))
         
         if (done_1==False):
-            action_1, action_1_raw = agent.act(mainhand_a, inventory_a, pov_a)
+            action_1, action_1_raw,  agent_state_raw = agent.act(mainhand_a, inventory_a, pov_a)
             obs_1, reward_1, done_1, info = env.step(action_1)
         
             if (reward_1 >0):
                 active_reward = active_reward+1
                 print("REWARD !!!!!!!!!!!!!!!!!!!!!!")
+
+            action_list.append(action_1_raw.numpy())
+            agent_state_list.append(agent_state_raw)
+
+            if (i%10==0):
+                for xe, ye in zip(action_list_names, [[(action_list[li])[0,ci]  for li in range(len(action_list))] for ci in range(len(action_list_names)) ]):
+                    pyplot.scatter([xe] * len(ye), ye)
+
+                pyplot.draw()
+                pyplot.pause(0.001)
+
         else:
             obs_1 = env.reset()
             done_1=False
@@ -317,12 +342,6 @@ for current_state, action, reward, next_state, done \
         pov_a = obs_a['pov']
 
         env.render()
-
-        # ... do something with the data.
-        #print("At the end of trajectories the length"
-        #      "can be < max_sequence_len", len(reward))
-
-
 
 
 print("DONE")

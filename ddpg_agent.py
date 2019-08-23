@@ -472,6 +472,12 @@ class NaivePrioritizedBuffer(object):
         #indices = np.random.choice(len(self.memory), self.batch_size, p=probs)
         indices = np.random.choice(len(self.memory), self.batch_size, False, p=probs)
         #indices = np.random.randint(0, len(self.memory), self.batch_size)
+
+        for idx in indices:
+            if self.memory[idx] != None:
+                if len((self.memory[idx][0])[0])!=21:
+                    print((self.memory[idx][0])[0])
+
         
         states = torch.from_numpy(np.vstack([self.memory[idx][0] for idx in indices if indices is not None])).float().to(device)
         states_2 = torch.from_numpy(np.stack([self.memory[idx][1] for idx in indices if indices is not None])).float().to(device)

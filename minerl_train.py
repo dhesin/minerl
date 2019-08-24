@@ -269,14 +269,16 @@ action_s = len(list(action_a.values()))
     
 data = minerl.data.make(
     'MineRLObtainDiamondDense-v0',
-    data_dir="/home/darici/minerl/minerl/data")
+    data_dir="/home/desin/minerl/data")
 
 agent = Agent(agent_state_size=21, world_state_size=(64, 64, 3), action_size=14, random_seed=0)
 
-action_list = np.zeros((action_s+1, 10), dtype=int)
-action_list_names = ("attack", "back", "camera_0", "camera_1", "craft", "equip",
+action_list = np.zeros((action_s-1, 10), dtype=int)
+action_list_names = ("attack", "back", "craft", "equip",
                      "forward", "jump", "left", "nearbyCraft", "nearbySmelt", 
                      "place", "right", "sneak", "sprint")
+camera_list = []
+camera_action_names = ("yaw", "pitch")
 action_counts = {}
 agent_state_list_names = ['damage', 'maxDamage', 'type', 'coal', 'cobblestone', 'crafting_table', 
                     'dirt', 'furnace','iron_axe', 'iron_ingot', 'iron_ore', 'iron_pickaxe', 
@@ -317,12 +319,15 @@ for current_state, action, reward, next_state, done \
                 active_reward = active_reward+1
                 print("REWARD !!!!!!!!!!!!!!!!!!!!!!")
 
-            print(action_1_raw[0].cpu())
-            zeros =np.zeros((action_s+1,10), dtype=int)
-            print(zeros)
-            one_hot_actions = zeros[np.arange(action_s+1), action_1_raw[0].cpu()]
-            print(one_hot_actions)
+            camera_list.append(action_1_raw[0][2:4].cpu().numpy())
 
+            #print((action_1_raw[0])[4:].cpu().int()) 
+
+            actions_1 = np.concatenate(((action_1_raw[0])[0:2].cpu().int(), (action_1_raw[0])[4:].cpu().int()))
+            camera = action_1_raw[2:4]
+            one_hot_actions =np.zeros((action_s-1,10), dtype=int)
+            #one_hot_actions[np.arange(action_s+1), action_1_raw[0].cpu().int()]=1
+            one_hot_actions[np.arange(action_s-1), actions_1]=1
 
             action_list = action_list+one_hot_actions
 
@@ -330,16 +335,11 @@ for current_state, action, reward, next_state, done \
 
                 for i,x in enumerate(action_list_names):
 
-                    pyplot.scatter(action_list_names[i]*10, np.arange(10), s=one_hot_actions[i,:])
+                    pyplot.scatter([action_list_names[i]]*10, np.arange(10), s=one_hot_actions[i,:])
 
-                # for xe, ye in zip(action_list_names, [[(action_list[li])[0,ci]  for li in range(len(action_list))] for ci in range(len(action_list_names)) ]):
-                #     for i,x in enumerate(xe):
-                #         print(i)
-                #         ye_list = ye[i].tolist()
-                #         print([ye[i].tolist()])
-                #         action_counts[x,ye[i-1][0]] = action_counts.get([x,ye[i-1][0]], 0)+1
-
-                #     pyplot.scatter([xe] * len(ye), ye)
+                print(camera_list)
+                for xe, ye in zip(camera_action_names, [[(camera_list[li])[ci]  for li in range(len(camera_list))] for ci in range(len(camera_action_names)) ]):
+                    pyplot.scatter([xe] * len(ye), ye)
 
                 pyplot.draw()
                 pyplot.pause(0.001)

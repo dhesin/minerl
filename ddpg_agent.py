@@ -44,7 +44,8 @@ class Agent():
         ======
         """
 
-        self.agent_state_size = kwargs['agent_state_size']
+        self.agent_mh_size = kwargs['agent_mh_size']
+        self.agent_inventory_size = kwargs['agent_inventory_size']
         self.world_state_size = kwargs['world_state_size']
         self.action_size = kwargs['action_size']
         self.seed = kwargs['random_seed']
@@ -52,16 +53,16 @@ class Agent():
         self.noise_scale = 1.0
         
         # Actor Network (w/ Target Network)
-        self.actor_local = Actor(self.agent_state_size, self.world_state_size, self.action_size, self.seed).to(device)
-        self.actor_target = Actor(self.agent_state_size, self.world_state_size, self.action_size, self.seed).to(device)
+        self.actor_local = Actor(self.agent_mh_size, self.agent_inventory_size, self.world_state_size, self.action_size, self.seed).to(device)
+        self.actor_target = Actor(self.agent_mh_size, self.agent_inventory_size, self.world_state_size, self.action_size, self.seed).to(device)
         self.actor_optimizer = optim.Adam(self.actor_local.parameters(), lr=LR_ACTOR)
         #self.actor_optimizer = optim.Adam(self.actor_local.parameters())
         self.actor_scheduler = optim.lr_scheduler.StepLR(self.actor_optimizer, step_size=200, gamma=0.99)
         
         
         # Critic Network (w/ Target Network)
-        self.critic_local = Critic(self.agent_state_size, self.world_state_size, self.action_size, self.seed).to(device)
-        self.critic_target = Critic(self.agent_state_size, self.world_state_size, self.action_size, self.seed).to(device)
+        self.critic_local = Critic(self.agent_mh_size+self.agent_inventory_size, self.world_state_size, self.action_size, self.seed).to(device)
+        self.critic_target = Critic(self.agent_mh_size+self.agent_inventory_size, self.world_state_size, self.action_size, self.seed).to(device)
 
         #params = list(self.critic_local.parameters()) + list(self.dist_net.parameters())
         self.critic_optimizer = optim.Adam(self.critic_local.parameters(), lr=LR_CRITIC, weight_decay=WEIGHT_DECAY)
@@ -102,34 +103,39 @@ class Agent():
         return action_flat
 
     def get_states(self, mainhand, inventory, pov):
-        agent_state = []
-        agent_state.append(mainhand['damage'])
-        agent_state.append(mainhand['maxDamage'])
-        agent_state.append(equipments.get(mainhand['type'], -1))
-        agent_state.append(inventory['coal'])
-        agent_state.append(inventory['cobblestone'])
-        agent_state.append(inventory['crafting_table'])
-        agent_state.append(inventory['dirt'])
-        agent_state.append(inventory['furnace'])
-        agent_state.append(inventory['iron_axe'])
-        agent_state.append(inventory['iron_ingot'])
-        agent_state.append(inventory['iron_ore'])
-        agent_state.append(inventory['iron_pickaxe'])
-        agent_state.append(inventory['log'])
-        agent_state.append(inventory['planks'])
-        agent_state.append(inventory['stick'])
-        agent_state.append(inventory['stone'])
-        agent_state.append(inventory['stone_axe'])
-        agent_state.append(inventory['stone_pickaxe'])
-        agent_state.append(inventory['torch'])
-        agent_state.append(inventory['wooden_axe'])
-        agent_state.append(inventory['wooden_pickaxe'])
+        agent_state_mainhand = []
+        agent_state_mainhand.append(mainhand['damage'])
+        agent_state_mainhand.append(mainhand['maxDamage'])
+        agent_state_mainhand.append(equipments.get(mainhand['type'], -1))
+
+        agent_state_inventory = []
+        agent_state_inventory.append(inventory['coal'])
+        agent_state_inventory.append(inventory['cobblestone'])
+        agent_state_inventory.append(inventory['crafting_table'])
+        agent_state_inventory.append(inventory['dirt'])
+        agent_state_inventory.append(inventory['furnace'])
+        agent_state_inventory.append(inventory['iron_axe'])
+        agent_state_inventory.append(inventory['iron_ingot'])
+        agent_state_inventory.append(inventory['iron_ore'])
+        agent_state_inventory.append(inventory['iron_pickaxe'])
+        agent_state_inventory.append(inventory['log'])
+        agent_state_inventory.append(inventory['planks'])
+        agent_state_inventory.append(inventory['stick'])
+        agent_state_inventory.append(inventory['stone'])
+        agent_state_inventory.append(inventory['stone_axe'])
+        agent_state_inventory.append(inventory['stone_pickaxe'])
+        agent_state_inventory.append(inventory['torch'])
+        agent_state_inventory.append(inventory['wooden_axe'])
+        agent_state_inventory.append(inventory['wooden_pickaxe'])
                 
-        agent_state_a = np.array(agent_state)
+        
+        
+        agent_state_mainhand = np.array(agent_state_mainhand)
+        agent_state_inventory = np.array(agent_state_inventory)
         world_state_a = np.array(pov)
         world_state_b = np.swapaxes(world_state_a,0,2)
                 
-        return agent_state_a, world_state_b
+        return agent_state_mainhand, agent_state_inventory, world_state_b
 
         
     def hard_copy_weights(self, target, source):
@@ -140,10 +146,10 @@ class Agent():
     def step(self, mainhand, inventory, pov, action, reward, mainhand_n, inventory_n, pov_n, done):
         """Save experience in replay memory, and use random sample from buffer to learn."""
         
-        agent_state, world_state = self.get_states(mainhand, inventory, pov)
-        agent_state_n, world_state_n = self.get_states(mainhand_n, inventory_n, pov_n)
-                
-        self.memory.add(agent_state, world_state, action, reward, agent_state_n, world_state_n, done)
+        agent_state_mainhand, agent_state_inventory, world_state = self.get_states(mainhand, inventory, pov)
+        agent_state_mainhand_n, agent_state_inventory_n, world_state_n = self.get_states(mainhand_n, inventory_n, pov_n)
+        
+        self.memory.add(agent_state_mainhand, agent_state_inventory, world_state, action, reward, agent_state_mainhand_n, agent_state_inventory_n, world_state_n, done)
         
         # Learn, if enough samples are available in memory
         self.iter = self.iter+1
@@ -157,26 +163,21 @@ class Agent():
         #self.actor_scheduler.step()
         #self.critic_scheduler.step()
 
-    def add_memory(self, e):
-        """Save experience in replay memory, and use random sample from buffer to learn."""
-                        
-        self.memory.add(e[0], e[1], e[2], e[3], e[4], e[5], e[6])
-        
 
     def learn_from_players(self, experiences):
         """Save experience in replay memory, and use random sample from buffer to learn."""
         
         for e in experiences:
-            if (random.random() < 0.1) or e[3] > 0.:
-                self.memory.add(e[0], e[1], e[2], e[3], e[4], e[5], e[6])
-            
+            if (random.random() < 0.1) or e[4] > 0.:
+                self.memory.add(e[0], e[1], e[2], e[3], e[4], e[5], e[6], e[7], e[8])
+
         # Learn, if enough samples are available in memory
         self.iter = self.iter+1
         self.iter = self.iter%1
         if len(self.memory) > BATCH_SIZE:
             
             experiences = self.memory.sample() 
-            (states, states_2, actions, rewards, next_states, next_states_2, dones) = experiences           
+            #(states, states_2, actions, rewards, next_states, next_states_2, dones) = experiences           
             self.learn_2(experiences, GAMMA)
             
             experiences = self.memory.sample()
@@ -190,23 +191,21 @@ class Agent():
     def act(self, mainhand, inventory, pov, add_noise=True, noise_scale=1.0):
         """Returns actions for given state as per current policy."""
 
-        agent_state, world_state = self.get_states(mainhand, inventory, pov)        
+        agent_state_mainhand, agent_state_inventory, world_state = self.get_states(mainhand, inventory, pov)        
         
-        s1 = torch.from_numpy(agent_state).float().unsqueeze(dim=0).to(device)   
+        s1 = torch.from_numpy(agent_state_mainhand).float().unsqueeze(dim=0).to(device)
+        s3 = torch.from_numpy(agent_state_inventory).float().unsqueeze(dim=0).to(device)
+
         s2 = torch.from_numpy(world_state).float().unsqueeze(dim=0).to(device) 
-
-        #s1 = torch.from_numpy(agent_state).to(device)   
-        #s2 = torch.from_numpy(world_state).to(device) 
-
 
         
         self.actor_local.eval()
         with torch.no_grad():
-            action, action_raw, _ , _ = self.actor_local(s1,s2)
+            action, action_raw, _ , _ , _ = self.actor_local(s1,s2,s3)
             
         self.actor_local.train()
         
-        return action, action_raw, agent_state
+        return action, action_raw, agent_state_mainhand, agent_state_inventory
 
     def reset(self):
         self.noise.reset()
@@ -223,25 +222,28 @@ class Agent():
             experiences (Tuple[torch.Tensor]): tuple of (s, a, r, s', done) tuples 
             gamma (float): discount factor
         """
-        #states, actions, rewards, next_states, dones, indices, weights = experiences
-        ( a_states_, w_states_, actions, rewards, a_next_states_, w_next_states_, dones ) = experiences
+        ( a_states_mh, a_state_invent, w_states_, actions, rewards, a_next_states_mh, a_next_state_invent, w_next_states_, dones ) = experiences
                 
-        a_states = a_states_.to(device)   
+        a_states_mh = a_states_mh.to(device)
+        a_states_invent = a_states_invent.to(device)
         w_states = w_states_.to(device) 
 
-        a_next_states = a_next_states_.to(device)   
+        a_next_states_mh = a_next_states_mh.to(device)
+        a_next_states_invent = a_next_states_invent.to(device)
         w_next_states = w_next_states_.to(device) 
 
         
 
         # ---------------------------- update critic ---------------------------- #
         # Get predicted next-state actions and Q values from target models
-        actions_next, actions_next_raw = self.actor_target(a_next_states, w_next_states)
+        actions_next, actions_next_raw = self.actor_target(a_next_states_mh, w_next_states, a_next_states_invent)
         #print(actions_next_raw)        
+        a_next_states = torch.cat(a_next_states_mh, a_next_states_invent)
         Q_targets_next, _ = self.critic_target(a_next_states, w_next_states, actions_next_raw)
         
 
         # Compute Q targets for current states (y_i)
+        a_states = torch.cat(a_states_mh, a_states_invent)
         Q_expected, Q_state_change_reward = self.critic_local(a_states, w_states, actions)
         Q_targets = rewards + (gamma * Q_targets_next * (1 - dones))
         #print("{} {} \r".format(Q_targets_next, Q_expected))
@@ -261,7 +263,7 @@ class Agent():
 
         # ---------------------------- update actor ---------------------------- #
         # Compute actor loss
-        actions_pred, actions_pred_raw = self.actor_local(a_states, w_states)
+        actions_pred, actions_pred_raw = self.actor_local(a_states_mh, w_states, a_states_invent)
         actor_loss, state_change_reward = self.critic_local(a_states, w_states, actions_pred_raw)
         actor_loss = -actor_loss.mean()
 
@@ -290,24 +292,28 @@ class Agent():
             gamma (float): discount factor
         """
         #states, actions, rewards, next_states, dones, indices, weights = experiences
-        ( a_states_, w_states_, actions, rewards, a_next_states_, w_next_states_, dones ) = experiences
+        ( a_states_mh, a_states_invent, w_states_, actions, rewards, a_next_states_mh, a_next_states_invent, w_next_states_, dones ) = experiences
                 
-        a_states = a_states_.to(device)   
+        a_states_mh = a_states_mh.to(device)
+        a_states_invent = a_states_invent.to(device)
         w_states = w_states_.to(device) 
 
-        a_next_states = a_next_states_.to(device)   
+        a_next_states_mh = a_next_states_mh.to(device) 
+        a_next_state_invent = a_next_states_invent.to(device)
         w_next_states = w_next_states_.to(device) 
 
         
 
         # ---------------------------- update critic ---------------------------- #
         # Get predicted next-state actions and Q values from target models
-        actions_next, actions_next_raw, _, _ = self.actor_target(a_next_states, w_next_states)
+        actions_next, actions_next_raw, _, _ , _ = self.actor_target(a_next_states_mh, w_next_states, a_next_states_invent)
         #print(actions_next_raw)        
+        a_next_states = torch.cat((a_next_states_mh, a_next_states_invent), dim=1)
         Q_targets_next, _ = self.critic_target(a_next_states, w_next_states, actions_next_raw)
         
 
         # Compute Q targets for current states (y_i)
+        a_states = torch.cat((a_states_mh, a_states_invent), dim=1)
         Q_expected, Q_state_change_reward = self.critic_local(a_states, w_states, actions)
         Q_targets = rewards + (gamma * Q_targets_next * (1 - dones))
         #print("{} {} \r".format(Q_targets_next, Q_expected))
@@ -327,14 +333,15 @@ class Agent():
 
         # ---------------------------- update actor ---------------------------- #
         # Compute actor loss
-        actions_pred, actions_pred_raw, n_wsd_predict, n_asd_predict = self.actor_local(a_states, w_states)
+        actions_pred, actions_pred_raw, n_wsd_predict, n_asmhd_predict, n_asinventd_predict = self.actor_local(a_states_mh, w_states, a_states_invent)
 
         #get next state descriptors
         n_wsd = self.actor_local.get_wsd(w_next_states)
-        n_asd = self.actor_local.get_asd(a_next_states)
+        n_asmhd = self.actor_local.get_asmhd(a_next_states_mh)
+        n_asinventd = self.actor_local.get_asinventoryd(a_next_states_invent)
 
 
-        actor_loss = torch.abs(n_wsd-n_wsd_predict)+torch.abs(n_asd-n_asd_predict)
+        actor_loss = torch.abs(n_wsd-n_wsd_predict)+torch.abs(n_asmhd-n_asmhd_predict)+torch.abs(n_asinventd-n_asinventd_predict)
         actor_loss = (actor_loss-rewards).sum()
  
 
@@ -441,20 +448,17 @@ class NaivePrioritizedBuffer(object):
         self.seed = random.seed(seed)
         np.random.seed(seed)
     
-    def add(self, state, state_2, action, reward, next_state, next_state_2, done):
-        assert state.ndim == next_state.ndim
+    def add(self, state_mh, state_invent, state_2, action, reward, next_state_mh, next_state_invent,  next_state_2, done):
 
-        if (state.shape[0] != 21):
-            print(state)
-            assert(0)
-
-        state      = np.expand_dims(state, 0)
-        next_state = np.expand_dims(next_state, 0)
+        state_mh      = np.expand_dims(state_mh, 0)
+        state_invent  = np.expand_dims(state_invent, 0)
+        next_state_mh = np.expand_dims(next_state_mh, 0)
+        next_state_invent = np.expand_dims(next_state_invent, 0)
                 
         if len(self.memory) < self.capacity:
-            self.memory.append((state, state_2, action, reward, next_state, next_state_2, done))
+            self.memory.append((state_mh, state_invent, state_2, action, reward, next_state_mh, next_state_invent, next_state_2, done))
         else:
-            self.memory[self.pos] = (self, state, state_2, action, reward, next_state, next_state_2, done)
+            self.memory[self.pos] = (state_mh, state_invent, state_2, action, reward, next_state_mh, next_state_invent, next_state_2, done)
         
         self.priorities[self.pos] = reward+0.1
         self.pos = (self.pos + 1) % self.capacity
@@ -473,22 +477,19 @@ class NaivePrioritizedBuffer(object):
         indices = np.random.choice(len(self.memory), self.batch_size, False, p=probs)
         #indices = np.random.randint(0, len(self.memory), self.batch_size)
 
-        for idx in indices:
-            if self.memory[idx] != None:
-                if len((self.memory[idx][0])[0])!=21:
-                    print((self.memory[idx][0])[0])
-
         
-        states = torch.from_numpy(np.vstack([self.memory[idx][0] for idx in indices if indices is not None])).float().to(device)
-        states_2 = torch.from_numpy(np.stack([self.memory[idx][1] for idx in indices if indices is not None])).float().to(device)
-        actions = torch.from_numpy(np.vstack([self.memory[idx][2] for idx in indices if indices is not None])).float().to(device)
-        rewards = torch.from_numpy(np.vstack([self.memory[idx][3] for idx in indices if indices is not None])).float().to(device)
-        next_states = torch.from_numpy(np.vstack([self.memory[idx][4] for idx in indices if indices is not None])).float().to(device)
-        next_states_2 = torch.from_numpy(np.stack([self.memory[idx][5] for idx in indices if indices is not None])).float().to(device)
-        dones = torch.from_numpy(np.vstack([self.memory[idx][6] for idx in indices if indices is not None]).astype(np.uint8)).float().to(device)
+        states_mh = torch.from_numpy(np.vstack([self.memory[idx][0] for idx in indices if indices is not None])).float().to(device)
+        states_invent = torch.from_numpy(np.vstack([self.memory[idx][1] for idx in indices if indices is not None])).float().to(device)        
+        states_2 = torch.from_numpy(np.stack([self.memory[idx][2] for idx in indices if indices is not None])).float().to(device)
+        actions = torch.from_numpy(np.vstack([self.memory[idx][3] for idx in indices if indices is not None])).float().to(device)
+        rewards = torch.from_numpy(np.vstack([self.memory[idx][4] for idx in indices if indices is not None])).float().to(device)
+        next_states_mh = torch.from_numpy(np.vstack([self.memory[idx][5] for idx in indices if indices is not None])).float().to(device)
+        next_states_invent = torch.from_numpy(np.vstack([self.memory[idx][6] for idx in indices if indices is not None])).float().to(device)
+        next_states_2 = torch.from_numpy(np.stack([self.memory[idx][7] for idx in indices if indices is not None])).float().to(device)
+        dones = torch.from_numpy(np.vstack([self.memory[idx][8] for idx in indices if indices is not None]).astype(np.uint8)).float().to(device)
     
         
-        experiences = (states, states_2, actions, rewards, next_states, next_states_2, dones)
+        experiences = (states_mh, states_invent, states_2, actions, rewards, next_states_mh, next_states_invent, next_states_2, dones)
         return experiences
     
     def update_priorities(self, batch_indices, batch_priorities):

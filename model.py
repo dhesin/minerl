@@ -13,7 +13,7 @@ def hidden_init(layer):
 class Actor(nn.Module):
     """Actor (Policy) Model."""
 
-    def __init__(self, agent_state_size, world_state_size, action_size, seed, growth_rate=128):
+    def __init__(self, agent_mh_size, agent_inventory_size, world_state_size, action_size, seed, growth_rate=128):
         """Initialize parameters and build model.
         Params
         ======
@@ -39,17 +39,27 @@ class Actor(nn.Module):
         self.cnn.add_module('relu3', nn.ReLU(inplace=True))   
         self.fc1 = nn.Linear(growth_rate,20)
         
-        # agent's mainhand and inventory
-        self.mh_inventory = nn.Sequential()
-        self.mh_inventory.add_module('norm', nn.LayerNorm(agent_state_size))
-        self.mh_inventory.add_module('linear1', nn.Linear(agent_state_size, 100, bias=False))
-        self.mh_inventory.add_module('relu1', nn.ReLU(inplace=True))
-        self.mh_inventory.add_module('linear2', nn.Linear(100, 20, bias=False))   
-        self.mh_inventory.add_module('relu2', nn.ReLU(inplace=True))
+        # agent's mainhand
+        self.mh = nn.Sequential()
+        self.mh.add_module('norm', nn.LayerNorm(agent_mh_size))
+        self.mh.add_module('linear1', nn.Linear(agent_mh_size, 100, bias=False))
+        self.mh.add_module('relu1', nn.ReLU(inplace=True))
+        self.mh.add_module('linear2', nn.Linear(100, 20, bias=False))   
+        self.mh.add_module('relu2', nn.ReLU(inplace=True))
 
+        
+        # agent'inventory
+        self.inventory = nn.Sequential()
+        self.inventory.add_module('norm', nn.LayerNorm(agent_inventory_size))
+        self.inventory.add_module('linear1', nn.Linear(agent_inventory_size, 100, bias=False))
+        self.inventory.add_module('relu1', nn.ReLU(inplace=True))
+        self.inventory.add_module('linear2', nn.Linear(100, 20, bias=False))
+        self.inventory.add_module('relu2', nn.ReLU(inplace=True))
+       
+        
         self.cnn_mh_inventory = nn.Sequential()
-        self.cnn_mh_inventory.add_module('norm', nn.LayerNorm(40))
-        self.cnn_mh_inventory.add_module('linear1', nn.Linear(40, 100, bias=False))
+        self.cnn_mh_inventory.add_module('norm', nn.LayerNorm(60))
+        self.cnn_mh_inventory.add_module('linear1', nn.Linear(60, 100, bias=False))
         self.cnn_mh_inventory.add_module('relu1', nn.ReLU(inplace=True))
         self.cnn_mh_inventory.add_module('linear2', nn.Linear(100, 40, bias=False))
         self.cnn_mh_inventory.add_module('relu2', nn.ReLU(inplace=True))
@@ -89,19 +99,27 @@ class Actor(nn.Module):
             'sprint': nn.Tanh(),
         })
 
-        self.next_state_predict_w_cnn = nn.Sequential()
-        self.next_state_predict_w_cnn.add_module('norm', nn.LayerNorm(20+15))
-        self.next_state_predict_w_cnn.add_module('linear1', nn.Linear(20+15, 100, bias=False))
-        self.next_state_predict_w_cnn.add_module('relu1', nn.ReLU(inplace=True))
-        self.next_state_predict_w_cnn.add_module('linear2', nn.Linear(100, 20, bias=False))
-        self.next_state_predict_w_cnn.add_module('relu2', nn.ReLU(inplace=True))
+        self.next_state_predict_cnn = nn.Sequential()
+        self.next_state_predict_cnn.add_module('norm', nn.LayerNorm(20+action_size+1))
+        self.next_state_predict_cnn.add_module('linear1', nn.Linear(20+action_size+1, 100, bias=False))
+        self.next_state_predict_cnn.add_module('relu1', nn.ReLU(inplace=True))
+        self.next_state_predict_cnn.add_module('linear2', nn.Linear(100, 20, bias=False))
+        self.next_state_predict_cnn.add_module('relu2', nn.ReLU(inplace=True))
  
-        self.next_state_predict_w_agent = nn.Sequential()
-        self.next_state_predict_w_agent.add_module('norm', nn.LayerNorm(20+15))
-        self.next_state_predict_w_agent.add_module('linear1', nn.Linear(20+15, 100, bias=False))
-        self.next_state_predict_w_agent.add_module('relu1', nn.ReLU(inplace=True))
-        self.next_state_predict_w_agent.add_module('linear2', nn.Linear(100, 20, bias=False))
-        self.next_state_predict_w_agent.add_module('relu2', nn.ReLU(inplace=True))
+        self.next_state_predict_agent_mh = nn.Sequential()
+        self.next_state_predict_agent_mh.add_module('norm', nn.LayerNorm(20+action_size+1))
+        self.next_state_predict_agent_mh.add_module('linear1', nn.Linear(20+action_size+1, 100, bias=False))
+        self.next_state_predict_agent_mh.add_module('relu1', nn.ReLU(inplace=True))
+        self.next_state_predict_agent_mh.add_module('linear2', nn.Linear(100, 20, bias=False))
+        self.next_state_predict_agent_mh.add_module('relu2', nn.ReLU(inplace=True))
+
+        self.next_state_predict_agent_inventory = nn.Sequential()
+        self.next_state_predict_agent_inventory.add_module('norm', nn.LayerNorm(20+action_size+1))
+        self.next_state_predict_agent_inventory.add_module('linear1', nn.Linear(20+action_size+1, 100, bias=False))
+        self.next_state_predict_agent_inventory.add_module('relu1', nn.ReLU(inplace=True))
+        self.next_state_predict_agent_inventory.add_module('linear2', nn.Linear(100, 20, bias=False))
+        self.next_state_predict_agent_inventory.add_module('relu2', nn.ReLU(inplace=True))
+       
 
 
         self.reset_parameters()
@@ -115,13 +133,22 @@ class Actor(nn.Module):
             elif isinstance(m, nn.Linear):
                 nn.init.xavier_uniform_(m.weight, gain=nn.init.calculate_gain('relu'))
             
-        for m in self.mh_inventory:
+        for m in self.mh:
             if isinstance(m, nn.Conv2d):
                 torch.nn.init.xavier_normal_(m.weight, gain=nn.init.calculate_gain('relu'))
                 #nn.init.constant_(m.bias, 0)
             elif isinstance(m, nn.Linear):
                 nn.init.xavier_uniform_(m.weight, gain=nn.init.calculate_gain('relu'))
- 
+
+        for m in self.inventory:
+            if isinstance(m, nn.Conv2d):
+                torch.nn.init.xavier_normal_(m.weight, gain=nn.init.calculate_gain('relu'))
+                #nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight, gain=nn.init.calculate_gain('relu'))
+
+
+
         for m in self.cnn_mh_inventory:
             if isinstance(m, nn.Conv2d):
                 torch.nn.init.xavier_normal_(m.weight, gain=nn.init.calculate_gain('relu'))
@@ -137,14 +164,21 @@ class Actor(nn.Module):
             elif isinstance(m, nn.Linear):
                 nn.init.xavier_uniform_(m.weight, gain=nn.init.calculate_gain('tanh'))
                 
-        for m in self.next_state_predict_w_cnn:
+        for m in self.next_state_predict_cnn:
             if isinstance(m, nn.Conv2d):
                 torch.nn.init.xavier_normal_(m.weight, gain=nn.init.calculate_gain('tanh'))
                 #nn.init.constant_(m.bias, 0)
             elif isinstance(m, nn.Linear):
                 nn.init.xavier_uniform_(m.weight, gain=nn.init.calculate_gain('relu'))
  
-        for m in self.next_state_predict_w_agent:
+        for m in self.next_state_predict_agent_mh:
+            if isinstance(m, nn.Conv2d):
+                torch.nn.init.xavier_normal_(m.weight, gain=nn.init.calculate_gain('tanh'))
+                #nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight, gain=nn.init.calculate_gain('relu'))
+
+        for m in self.next_state_predict_agent_inventory:
             if isinstance(m, nn.Conv2d):
                 torch.nn.init.xavier_normal_(m.weight, gain=nn.init.calculate_gain('tanh'))
                 #nn.init.constant_(m.bias, 0)
@@ -152,17 +186,18 @@ class Actor(nn.Module):
                 nn.init.xavier_uniform_(m.weight, gain=nn.init.calculate_gain('relu'))
 
                                                     
-    def forward(self, agent_state, world_state):
+    def forward(self, agent_state_mh, world_state, agent_state_inventory):
         """Build an actor (policy) network that maps states -> actions."""
         x = self.cnn(world_state).squeeze(dim=2).squeeze(dim=2)
         x = self.fc1(x)
         wsd = F.relu(x)  # world state descriptor
 
 
-        asd = self.mh_inventory(agent_state) # agent state descriptor
+        asmhd = self.mh(agent_state_mh) # agent state mainhand descriptor
+        asinventoryd = self.inventory(agent_state_inventory) # agent state inventory descriptor
 
 
-        z = torch.cat([wsd, asd], 1)
+        z = torch.cat([wsd, asmhd, asinventoryd], 1)
         z = self.cnn_mh_inventory(z)
         
         actions = {}
@@ -208,13 +243,17 @@ class Actor(nn.Module):
         actions_raw = torch.cat(actions_raw, dim=1)
 
         z = torch.cat([wsd, actions_raw], 1)
-        n_wsd_predict = self.next_state_predict_w_cnn(z)
+        n_wsd_predict = self.next_state_predict_cnn(z)
 
-        z = torch.cat([asd, actions_raw], 1)
-        n_asd_predict = self.next_state_predict_w_agent(z)
+        z = torch.cat([asmhd, actions_raw], 1)
+        n_asmhd_predict = self.next_state_predict_agent_mh(z)
+
+        z = torch.cat([asinventoryd, actions_raw], 1)
+        n_asinventoryd_predict = self.next_state_predict_agent_inventory(z)
+
         
         
-        return actions, actions_raw, n_wsd_predict, n_asd_predict
+        return actions, actions_raw, n_wsd_predict, n_asmhd_predict, n_asinventoryd_predict
 
     def get_wsd(self, world_state):
 
@@ -223,9 +262,13 @@ class Actor(nn.Module):
         wsd = F.relu(x)  # world state descriptor
         return wsd
 
-    def get_asd(self, agent_state):
-        asd = self.mh_inventory(agent_state) # agent state descriptor
-        return asd
+    def get_asmhd(self, agent_state_mh):
+        asmhd = self.mh(agent_state_mh) # agent state descriptor
+        return asmhd
+
+    def get_asinventoryd(self, agent_state_inventory):
+        asinventoryd = self.inventory(agent_state_inventory) # agent state descriptor
+        return asinventoryd
 
 
 

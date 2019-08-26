@@ -135,32 +135,37 @@ def extract_data_from_dict(current_state, action, reward, next_state, done):
     pov = current_state['pov']
 
 
-    agent_state = []
-    agent_state.append(mainhand['damage'])
-    agent_state.append(mainhand['maxDamage'])
-    agent_state.append(mainhand['type'])
-    agent_state.append(inventory['coal'])
-    agent_state.append(inventory['cobblestone'])
-    agent_state.append(inventory['crafting_table'])
-    agent_state.append(inventory['dirt'])
-    agent_state.append(inventory['furnace'])
-    agent_state.append(inventory['iron_axe'])
-    agent_state.append(inventory['iron_ingot'])
-    agent_state.append(inventory['iron_ore'])
-    agent_state.append(inventory['iron_pickaxe'])
-    agent_state.append(inventory['log'])
-    agent_state.append(inventory['planks'])
-    agent_state.append(inventory['stick'])
-    agent_state.append(inventory['stone'])
-    agent_state.append(inventory['stone_axe'])
-    agent_state.append(inventory['stone_pickaxe'])
-    agent_state.append(inventory['torch'])
-    agent_state.append(inventory['wooden_axe'])
-    agent_state.append(inventory['wooden_pickaxe'])
+    agent_mh = []
+    agent_mh.append(mainhand['damage'])
+    agent_mh.append(mainhand['maxDamage'])
+    agent_mh.append(mainhand['type'])
+
+    agent_inventory = []
+    agent_inventory.append(inventory['coal'])
+    agent_inventory.append(inventory['cobblestone'])
+    agent_inventory.append(inventory['crafting_table'])
+    agent_inventory.append(inventory['dirt'])
+    agent_inventory.append(inventory['furnace'])
+    agent_inventory.append(inventory['iron_axe'])
+    agent_inventory.append(inventory['iron_ingot'])
+    agent_inventory.append(inventory['iron_ore'])
+    agent_inventory.append(inventory['iron_pickaxe'])
+    agent_inventory.append(inventory['log'])
+    agent_inventory.append(inventory['planks'])
+    agent_inventory.append(inventory['stick'])
+    agent_inventory.append(inventory['stone'])
+    agent_inventory.append(inventory['stone_axe'])
+    agent_inventory.append(inventory['stone_pickaxe'])
+    agent_inventory.append(inventory['torch'])
+    agent_inventory.append(inventory['wooden_axe'])
+    agent_inventory.append(inventory['wooden_pickaxe'])
 
     #flat_list = [item for sublist in agent_state for item in sublist]
-    vertical_agent_state = [np.vstack(item) for item in agent_state]
-    concat_agent_state = np.concatenate(vertical_agent_state, axis=1)
+    vertical_agent_mh = [np.vstack(item) for item in agent_mh]
+    vertical_agent_invent = [np.vstack(item) for item in agent_inventory]
+    concat_agent_mh = np.concatenate(vertical_agent_mh, axis=1)
+    concat_agent_invent = np.concatenate(vertical_agent_invent, axis=1)
+    
     #print(concat_agent_state)
     #[print(item.shape) for item in pov]
     
@@ -182,32 +187,36 @@ def extract_data_from_dict(current_state, action, reward, next_state, done):
     pov = next_state['pov']
 
 
-    agent_state = []
-    agent_state.append(mainhand['damage'])
-    agent_state.append(mainhand['maxDamage'])
-    agent_state.append(mainhand['type'])
-    agent_state.append(inventory['coal'])
-    agent_state.append(inventory['cobblestone'])
-    agent_state.append(inventory['crafting_table'])
-    agent_state.append(inventory['dirt'])
-    agent_state.append(inventory['furnace'])
-    agent_state.append(inventory['iron_axe'])
-    agent_state.append(inventory['iron_ingot'])
-    agent_state.append(inventory['iron_ore'])
-    agent_state.append(inventory['iron_pickaxe'])
-    agent_state.append(inventory['log'])
-    agent_state.append(inventory['planks'])
-    agent_state.append(inventory['stick'])
-    agent_state.append(inventory['stone'])
-    agent_state.append(inventory['stone_axe'])
-    agent_state.append(inventory['stone_pickaxe'])
-    agent_state.append(inventory['torch'])
-    agent_state.append(inventory['wooden_axe'])
-    agent_state.append(inventory['wooden_pickaxe'])
+    agent_mh = []
+    agent_mh.append(mainhand['damage'])
+    agent_mh.append(mainhand['maxDamage'])
+    agent_mh.append(mainhand['type'])
+
+    agent_inventory = []
+    agent_inventory.append(inventory['coal'])
+    agent_inventory.append(inventory['cobblestone'])
+    agent_inventory.append(inventory['crafting_table'])
+    agent_inventory.append(inventory['dirt'])
+    agent_inventory.append(inventory['furnace'])
+    agent_inventory.append(inventory['iron_axe'])
+    agent_inventory.append(inventory['iron_ingot'])
+    agent_inventory.append(inventory['iron_ore'])
+    agent_inventory.append(inventory['iron_pickaxe'])
+    agent_inventory.append(inventory['log'])
+    agent_inventory.append(inventory['planks'])
+    agent_inventory.append(inventory['stick'])
+    agent_inventory.append(inventory['stone'])
+    agent_inventory.append(inventory['stone_axe'])
+    agent_inventory.append(inventory['stone_pickaxe'])
+    agent_inventory.append(inventory['torch'])
+    agent_inventory.append(inventory['wooden_axe'])
+    agent_inventory.append(inventory['wooden_pickaxe'])
 
     #flat_list = [item for sublist in agent_state for item in sublist]
-    vertical_next_agent_state = [np.vstack(item) for item in agent_state]
-    concat_next_agent_state = np.concatenate(vertical_next_agent_state, axis=1)
+    vertical_next_agent_mh = [np.vstack(item) for item in agent_mh]
+    vertical_next_agent_invent = [np.vstack(item) for item in agent_inventory]
+    concat_next_agent_mh = np.concatenate(vertical_next_agent_mh, axis=1)
+    concat_next_agent_invent = np.concatenate(vertical_next_agent_invent, axis=1)
 
     swap_next_world_state = [np.swapaxes(item,0,2) for item in pov]
     
@@ -245,7 +254,7 @@ def extract_data_from_dict(current_state, action, reward, next_state, done):
     vertical_agent_actions = [np.vstack(item) for item in agent_actions]
     concat_agent_actions = np.concatenate(vertical_agent_actions, axis=1)
 
-    experiences = zip(concat_agent_state, vertical_world_state, concat_agent_actions, reward, concat_next_agent_state, vertical_next_world_state, done)
+    experiences = zip(concat_agent_mh, concat_agent_invent, vertical_world_state, concat_agent_actions, reward, concat_next_agent_mh, concat_next_agent_invent, vertical_next_world_state, done)
 
     experiences = np.array(list(experiences))
     return experiences
@@ -269,9 +278,9 @@ action_s = len(list(action_a.values()))
     
 data = minerl.data.make(
     'MineRLObtainDiamondDense-v0',
-    data_dir="/home/desin/minerl/data")
+    data_dir="/home/darici/minerl/minerl/data")
 
-agent = Agent(agent_state_size=21, world_state_size=(64, 64, 3), action_size=14, random_seed=0)
+agent = Agent(agent_mh_size=3, agent_inventory_size = 18, world_state_size=(64, 64, 3), action_size=14, random_seed=0)
 
 action_list = np.zeros((action_s-1, 10), dtype=int)
 action_list_names = ("attack", "back", "craft", "equip",
@@ -279,7 +288,7 @@ action_list_names = ("attack", "back", "craft", "equip",
                      "place", "right", "sneak", "sprint")
 camera_list = []
 camera_action_names = ("yaw", "pitch")
-action_counts = {}
+
 agent_state_list_names = ['damage', 'maxDamage', 'type', 'coal', 'cobblestone', 'crafting_table', 
                     'dirt', 'furnace','iron_axe', 'iron_ingot', 'iron_ore', 'iron_pickaxe', 
                     'log', 'planks', 'stick', 'stone', 'stone_axe', 'stone_pickaxe', 
@@ -312,32 +321,34 @@ for current_state, action, reward, next_state, done \
         	print("reward...{} ".format(active_reward))
         
         if (done_1==False):
-            action_1, action_1_raw,  agent_state_raw = agent.act(mainhand_a, inventory_a, pov_a)
+            action_1, action_1_raw,  agent_mh_raw, agent_inventory_raw = agent.act(mainhand_a, inventory_a, pov_a)
             obs_1, reward_1, done_1, info = env.step(action_1)
         
             if (reward_1 >0):
                 active_reward = active_reward+1
                 print("REWARD !!!!!!!!!!!!!!!!!!!!!!")
 
-            camera_list.append(action_1_raw[0][2:4].cpu().numpy())
+            #camera_list.append(action_1_raw[0][2:4].cpu().numpy())
+            #agent_state_list.append(agent_state_raw)
+
 
             #print((action_1_raw[0])[4:].cpu().int()) 
 
-            actions_1 = np.concatenate(((action_1_raw[0])[0:2].cpu().int(), (action_1_raw[0])[4:].cpu().int()))
-            camera = action_1_raw[2:4]
-            one_hot_actions =np.zeros((action_s-1,10), dtype=int)
+            #actions_1 = np.concatenate(((action_1_raw[0])[0:2].cpu().int(), (action_1_raw[0])[4:].cpu().int()))
+            #camera = action_1_raw[2:4]
+            #one_hot_actions =np.zeros((action_s-1,10), dtype=int)
             #one_hot_actions[np.arange(action_s+1), action_1_raw[0].cpu().int()]=1
-            one_hot_actions[np.arange(action_s-1), actions_1]=1
+            #one_hot_actions[np.arange(action_s-1), actions_1]=1
 
-            action_list = action_list+one_hot_actions
+            #action_list = action_list+one_hot_actions
 
-            if (i%10==0):
-
+            if (i%100000==0):
+                #print(agent_state_raw)
+                #print(action_list)
                 for i,x in enumerate(action_list_names):
+                    max_s = 1+max(action_list[i,:])/100
+                    pyplot.scatter([action_list_names[i]]*10, np.arange(10), s=action_list[i,:]/max_s)
 
-                    pyplot.scatter([action_list_names[i]]*10, np.arange(10), s=one_hot_actions[i,:])
-
-                print(camera_list)
                 for xe, ye in zip(camera_action_names, [[(camera_list[li])[ci]  for li in range(len(camera_list))] for ci in range(len(camera_action_names)) ]):
                     pyplot.scatter([xe] * len(ye), ye)
 

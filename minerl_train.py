@@ -21,107 +21,30 @@ from ddpg_agent import Agent
 #logging.basicConfig(level=logging.DEBUG)
 #pil_img = transforms.ToPILImage()(pov)
 #imshow(pil_img)
-
-
-def extract_data_from_dict_single(current_state, action, reward, next_state, done):
-
-    equipments = {"none":1, 'air':2, 'wooden_axe':3, 'wooden_pickaxe':4, 
-              'stone_axe':5, 'stone_pickaxe':6, 'iron_axe':7, 'iron_pickaxe':8}
-
-
-    # current state
-    mainhand = current_state['equipped_items']['mainhand']
-    inventory = current_state['inventory']
-    pov = current_state['pov']
-
-
-    agent_state = []
-    agent_state.append(mainhand['damage'])
-    agent_state.append(mainhand['maxDamage'])
-    agent_state.append(mainhand['type'])
-    agent_state.append(inventory['coal'])
-    agent_state.append(inventory['cobblestone'])
-    agent_state.append(inventory['crafting_table'])
-    agent_state.append(inventory['dirt'])
-    agent_state.append(inventory['furnace'])
-    agent_state.append(inventory['iron_axe'])
-    agent_state.append(inventory['iron_ingot'])
-    agent_state.append(inventory['iron_ore'])
-    agent_state.append(inventory['iron_pickaxe'])
-    agent_state.append(inventory['log'])
-    agent_state.append(inventory['planks'])
-    agent_state.append(inventory['stick'])
-    agent_state.append(inventory['stone'])
-    agent_state.append(inventory['stone_axe'])
-    agent_state.append(inventory['stone_pickaxe'])
-    agent_state.append(inventory['torch'])
-    agent_state.append(inventory['wooden_axe'])
-    agent_state.append(inventory['wooden_pickaxe'])
-
-    
-    swap_world_state = np.swapaxes(pov,0,2)
-    
-     
-    # next_state
-    mainhand = next_state['equipped_items']['mainhand']
-    inventory = next_state['inventory']
-    pov = next_state['pov']
-
-
-    agent_state_next = []
-    agent_state_next.append(mainhand['damage'])
-    agent_state_next.append(mainhand['maxDamage'])
-    agent_state_next.append(mainhand['type'])
-    agent_state_next.append(inventory['coal'])
-    agent_state_next.append(inventory['cobblestone'])
-    agent_state_next.append(inventory['crafting_table'])
-    agent_state_next.append(inventory['dirt'])
-    agent_state_next.append(inventory['furnace'])
-    agent_state_next.append(inventory['iron_axe'])
-    agent_state_next.append(inventory['iron_ingot'])
-    agent_state_next.append(inventory['iron_ore'])
-    agent_state_next.append(inventory['iron_pickaxe'])
-    agent_state_next.append(inventory['log'])
-    agent_state_next.append(inventory['planks'])
-    agent_state_next.append(inventory['stick'])
-    agent_state_next.append(inventory['stone'])
-    agent_state_next.append(inventory['stone_axe'])
-    agent_state_next.append(inventory['stone_pickaxe'])
-    agent_state_next.append(inventory['torch'])
-    agent_state_next.append(inventory['wooden_axe'])
-    agent_state_next.append(inventory['wooden_pickaxe'])
-
  
-    swap_next_world_state = np.swapaxes(pov,0,2)
-    
+def entropy(labels):
+  """ Computes entropy of label distribution. """
 
-    
-    # get action list
-    
-    agent_actions = []
-    agent_actions.append(action["attack"])
-    agent_actions.append(action["back"])
-    agent_actions.append(action["camera"][0])
-    agent_actions.append(action["camera"][1])
-    agent_actions.append(action["craft"])
-    agent_actions.append(action["equip"])
-    agent_actions.append(action["forward"])
-    agent_actions.append(action["jump"])
-    agent_actions.append(action["left"])
-    agent_actions.append(action["nearbyCraft"])
-    agent_actions.append(action["nearbySmelt"])
-    agent_actions.append(action["place"])
-    agent_actions.append(action["right"])
-    agent_actions.append(action["sneak"])
-    agent_actions.append(action["sprint"])
-    
+  n_labels = len(labels)
 
+  if n_labels <= 1:
+    return 0
 
-    experience = (np.array(agent_state), np.array(swap_world_state), np.array(agent_actions), reward, np.array(agent_state_next), np.array(swap_next_world_state), done)
-    #print(agent_state_next)
+  value,counts = np.unique(labels, return_counts=True)
+  probs = counts / n_labels
+  n_classes = np.count_nonzero(probs)
 
-    return experience
- 
+  if n_classes <= 1:
+    return 0
+
+  ent = 0.
+
+  # Compute entropy
+  for i in probs:
+    ent -= i * np.log(i)
+
+  return ent
+
 
 def extract_data_from_dict(current_state, action, reward, next_state, done):
 
@@ -139,6 +62,7 @@ def extract_data_from_dict(current_state, action, reward, next_state, done):
     agent_mh.append(mainhand['damage'])
     agent_mh.append(mainhand['maxDamage'])
     agent_mh.append(mainhand['type'])
+    agent_mh_ts = agent_mh
 
     agent_inventory = []
     agent_inventory.append(inventory['coal'])
@@ -159,16 +83,14 @@ def extract_data_from_dict(current_state, action, reward, next_state, done):
     agent_inventory.append(inventory['torch'])
     agent_inventory.append(inventory['wooden_axe'])
     agent_inventory.append(inventory['wooden_pickaxe'])
+    agent_inventory_ts = agent_inventory
 
-    #flat_list = [item for sublist in agent_state for item in sublist]
     vertical_agent_mh = [np.vstack(item) for item in agent_mh]
     vertical_agent_invent = [np.vstack(item) for item in agent_inventory]
     concat_agent_mh = np.concatenate(vertical_agent_mh, axis=1)
     concat_agent_invent = np.concatenate(vertical_agent_invent, axis=1)
     
-    #print(concat_agent_state)
-    #[print(item.shape) for item in pov]
-    
+
     swap_world_state = [np.swapaxes(item,0,2) for item in pov]
     
     #[print(item.shape) for item in swap_world_state]   
@@ -249,15 +171,23 @@ def extract_data_from_dict(current_state, action, reward, next_state, done):
     agent_actions.append(action["sneak"])
     agent_actions.append(action["sprint"])
     
+    entropy_t = 0.0
+    for i in range(len(agent_actions)):
+        entropy_t = entropy_t + entropy(agent_actions[i])
+    #print(entropy_t)
+    #print(agent_actions[5])
+    #print(entropy(agent_actions[5]))
 
-    
     vertical_agent_actions = [np.vstack(item) for item in agent_actions]
     concat_agent_actions = np.concatenate(vertical_agent_actions, axis=1)
 
     experiences = zip(concat_agent_mh, concat_agent_invent, vertical_world_state, concat_agent_actions, reward, concat_next_agent_mh, concat_next_agent_invent, vertical_next_world_state, done)
+    #print(concat_agent_invent)
+    #print(concat_next_agent_invent)
 
     experiences = np.array(list(experiences))
-    return experiences
+    experiences[-1][4] = experiences[-1][4]+entropy_t
+    return experiences[-1], agent_mh_ts, agent_inventory_ts
  
 
 
@@ -278,7 +208,7 @@ action_s = len(list(action_a.values()))
     
 data = minerl.data.make(
     'MineRLObtainDiamondDense-v0',
-    data_dir="/home/darici/minerl/minerl/data")
+    data_dir="/home/desin/minerl/data")
 
 agent = Agent(agent_mh_size=3, agent_inventory_size = 18, world_state_size=(64, 64, 3), action_size=14, random_seed=0)
 
@@ -314,8 +244,8 @@ for current_state, action, reward, next_state, done \
 
             #continue
         done = np.delete(done, -1)
-        experiences = extract_data_from_dict(current_state, action, reward, next_state, done)
-        agent.learn_from_players(experiences)
+        experiences, mh_ts, invent_ts = extract_data_from_dict(current_state, action, reward, next_state, done)
+        agent.learn_from_players(experiences, mh_ts, invent_ts)
         
         if (np.any(reward)):
         	print("reward...{} ".format(active_reward))

@@ -254,6 +254,9 @@ def extract_data_from_dict(current_state, action, reward, next_state, done):
     vertical_agent_actions = [np.vstack(item) for item in agent_actions]
     concat_agent_actions = np.concatenate(vertical_agent_actions, axis=1)
 
+
+    #print(concat_agent_invent)
+    #print(concat_next_agent_invent)
     experiences = zip(concat_agent_mh, concat_agent_invent, vertical_world_state, concat_agent_actions, reward, concat_next_agent_mh, concat_next_agent_invent, vertical_next_world_state, done)
 
     experiences = np.array(list(experiences))

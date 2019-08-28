@@ -164,12 +164,12 @@ class Agent():
         #self.critic_scheduler.step()
 
 
-    def learn_from_players(self, experiences):
+    def learn_from_players(self, experiences, mh_ts, invent_ts):
         """Save experience in replay memory, and use random sample from buffer to learn."""
         
-        for e in experiences:
-            if (random.random() < 0.1) or e[4] > 0.:
-                self.memory.add(e[0], e[1], e[2], e[3], e[4], e[5], e[6], e[7], e[8])
+        #print(experiences)
+        e = experiences
+        self.memory.add(e[0], e[1], e[2], e[3], e[4], e[5], e[6], e[7], e[8])
 
         # Learn, if enough samples are available in memory
         self.iter = self.iter+1

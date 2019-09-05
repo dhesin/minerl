@@ -254,7 +254,7 @@ writer = SummaryWriter()
     
 data = minerl.data.make(
     'MineRLObtainDiamondDense-v0',
-    data_dir="/home/desin/minerl/data")
+    data_dir="/home/darici/minerl/minerl/data")
 
 agent = Agent(agent_mh_size=3, agent_inventory_size = 18, world_state_size=(64, 64, 3), action_size=14, random_seed=0)
 
@@ -271,6 +271,7 @@ agent_state_list_names = ['damage', 'maxDamage', 'type', 'coal', 'cobblestone', 
                     'torch', 'wooden_axe', 'wooden_pickaxe']
 agent_state_list = []
 
+loss_list = deque(maxlen=10000)
 
 pyplot.ion()
 pyplot.show()
@@ -292,7 +293,7 @@ for current_state, action, reward, next_state, done in data.sarsd_iter(num_epoch
         eps_i = eps_i+1
         done = np.delete(done, -1)
         experiences, mh_ts, invent_ts = extract_data_from_dict(current_state, action, reward, next_state, done)
-        agent.learn_from_players(experiences, mh_ts, invent_ts, writer)
+        agent.learn_from_players(experiences, mh_ts, invent_ts, writer, loss_list)
         
         
         if (reward[-1] > 0):
@@ -334,6 +335,7 @@ for current_state, action, reward, next_state, done in data.sarsd_iter(num_epoch
 
                  pyplot.figure(1)
                  pyplot.clf()
+                 pyplot.ylim(-50,50)
                  for i,x in enumerate(action_names):
                      max_s = 1+max(action_counts[i,:])/100
                      pyplot.scatter([action_names[i]]*10, np.arange(10), s=action_counts[i,:]/max_s)
@@ -346,7 +348,7 @@ for current_state, action, reward, next_state, done in data.sarsd_iter(num_epoch
 
                  pyplot.figure(2)
                  pyplot.clf()
-                 pyplot.ylim(0,10)
+                 pyplot.ylim(-50,100)
                  pyplot.plot(np.arange(len(loss_list)), [sublist[0] for sublist in loss_list])
                  pyplot.plot(np.arange(len(loss_list)), [sublist[1] for sublist in loss_list])
                  pyplot.draw()

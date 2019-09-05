@@ -164,7 +164,7 @@ class Agent():
         #self.critic_scheduler.step()
 
 
-    def learn_from_players(self, experiences, mh_ts, invent_ts, writer):
+    def learn_from_players(self, experiences, mh_ts, invent_ts, writer, loss_list):
         """Save experience in replay memory, and use random sample from buffer to learn."""
         
         #print(experiences)
@@ -181,11 +181,13 @@ class Agent():
             loss_1, loss_2 = self.learn_2(experiences, GAMMA)
             writer.add_scalar('loss 1', loss_1)
             writer.add_scalar('loss 2', loss_2)
+            loss_list.append((loss_1, loss_2))
             
             experiences = self.memory.sample()
             loss_1, loss_2 = self.learn_2(experiences, GAMMA)
             writer.add_scalar('loss 1', loss_1)
             writer.add_scalar('loss 2', loss_2)
+            loss_list.append((loss_1, loss_2))
 
         #self.actor_scheduler.step()
         #self.critic_scheduler.step()
@@ -229,20 +231,21 @@ class Agent():
     def get_action_loss(self, gt, onehot_probs, mh_state_loss, inventory_state_loss, \
         world_state_loss, q_diff_loss=None, q_value_loss=None):
 
-        attack_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,0], gt[:,0])
-        back_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,1], gt[:,1])
-        camera_loss = F.mse_loss(onehot_probs[:,2:4], gt[:,2:4])
-        craft_loss = F.cross_entropy(onehot_probs[:,4:9], gt[:,4].long())
-        equip_loss = F.cross_entropy(onehot_probs[:,9:17], gt[:,5].long())
-        forward_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,17], gt[:,6])
-        jump_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,18], gt[:,7])
-        left_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,19], gt[:,8])
-        nearby_craft_loss = F.cross_entropy(onehot_probs[:,20:28], gt[:,9].long())
-        nearby_smelt_loss = F.cross_entropy(onehot_probs[:,28:31], gt[:,10].long())
-        place_loss = F.cross_entropy(onehot_probs[:,31:38], gt[:,11].long())
-        right_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,38], gt[:,12])
-        sneak_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,39], gt[:,13])
-        sprint_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,40], gt[:,14])
+        q_value_loss = q_value_loss.detach()/14
+        attack_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,0], gt[:,0])+q_value_loss
+        back_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,1], gt[:,1])+q_value_loss
+        camera_loss = F.mse_loss(onehot_probs[:,2:4], gt[:,2:4])+q_value_loss
+        craft_loss = F.cross_entropy(onehot_probs[:,4:9], gt[:,4].long())+q_value_loss
+        equip_loss = F.cross_entropy(onehot_probs[:,9:17], gt[:,5].long())+q_value_loss
+        forward_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,17], gt[:,6])+q_value_loss
+        jump_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,18], gt[:,7])+q_value_loss
+        left_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,19], gt[:,8])+q_value_loss
+        nearby_craft_loss = F.cross_entropy(onehot_probs[:,20:28], gt[:,9].long())+q_value_loss
+        nearby_smelt_loss = F.cross_entropy(onehot_probs[:,28:31], gt[:,10].long())+q_value_loss
+        place_loss = F.cross_entropy(onehot_probs[:,31:38], gt[:,11].long())+q_value_loss
+        right_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,38], gt[:,12])+q_value_loss
+        sneak_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,39], gt[:,13])+q_value_loss
+        sprint_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,40], gt[:,14])+q_value_loss
         
 
         self.actor_optimizer.zero_grad()
@@ -257,7 +260,7 @@ class Agent():
             torch.autograd.backward([attack_loss,back_loss,camera_loss,craft_loss,equip_loss,\
                     forward_loss,jump_loss,left_loss,nearby_craft_loss,nearby_smelt_loss,place_loss, \
                     right_loss,sneak_loss,sprint_loss,mh_state_loss,inventory_state_loss, \
-                    world_state_loss, q_diff_loss, q_value_loss])
+                    world_state_loss, q_diff_loss])
 
 
         torch.nn.utils.clip_grad_norm_(self.actor_local.parameters(), 1)
@@ -351,7 +354,7 @@ class Agent():
 
 
         # predict actions and next state with 
-        _, _, action_logits, Q_current, n_wsd_predict, n_asmhd_predict, n_asinventd_predict, _, _, _ = \
+        _, action_raw, action_logits, Q_current, n_wsd_predict, n_asmhd_predict, n_asinventd_predict, _, _, _ = \
                 self.actor_local(a_states_mh, w_states, a_states_invent)
 
         # calculate loss for actor

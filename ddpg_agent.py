@@ -164,7 +164,7 @@ class Agent():
         #self.critic_scheduler.step()
 
 
-    def learn_from_players(self, experiences, mh_ts, invent_ts, loss_list):
+    def learn_from_players(self, experiences, mh_ts, invent_ts, writer):
         """Save experience in replay memory, and use random sample from buffer to learn."""
         
         #print(experiences)
@@ -173,18 +173,19 @@ class Agent():
 
         # Learn, if enough samples are available in memory
         self.iter = self.iter+1
-        self.iter = self.iter%1
 
         if len(self.memory) > BATCH_SIZE:
             
             experiences = self.memory.sample() 
             #(states, states_2, actions, rewards, next_states, next_states_2, dones) = experiences           
-            loss_1, loss_2 = self.learn_3(experiences, GAMMA)
-            loss_list.append((loss_1, loss_2))
+            loss_1, loss_2 = self.learn_2(experiences, GAMMA)
+            writer.add_scalar('loss 1', loss_1)
+            writer.add_scalar('loss 2', loss_2)
             
             experiences = self.memory.sample()
-            loss_1, loss_2 = self.learn_3(experiences, GAMMA)
-            loss_list.append((loss_1, loss_2))
+            loss_1, loss_2 = self.learn_2(experiences, GAMMA)
+            writer.add_scalar('loss 1', loss_1)
+            writer.add_scalar('loss 2', loss_2)
 
         #self.actor_scheduler.step()
         #self.critic_scheduler.step()
@@ -203,7 +204,7 @@ class Agent():
         
         self.actor_local.eval()
         with torch.no_grad():
-            action, action_raw ,_,  _ ,  _ , _ , _ = self.actor_local(s1,s2,s3)
+            action, action_raw ,_,  _ ,  _ , _ , _ , _, _, _= self.actor_local(s1,s2,s3)
             
         self.actor_local.train()
         
@@ -225,7 +226,8 @@ class Agent():
         for target_param, local_param in zip(target_model.parameters(), local_model.parameters()):
             target_param.data.copy_(tau*local_param.data + (1.0-tau)*target_param.data)
 
-    def get_action_loss(self, gt, onehot_probs, mh_state_loss, inventory_state_loss, world_state_loss, q_value_loss=None):
+    def get_action_loss(self, gt, onehot_probs, mh_state_loss, inventory_state_loss, \
+        world_state_loss, q_diff_loss=None, q_value_loss=None):
 
         attack_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,0], gt[:,0])
         back_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,1], gt[:,1])
@@ -246,16 +248,16 @@ class Agent():
         self.actor_optimizer.zero_grad()
         self.critic_optimizer.zero_grad()
 
-        if q_value_loss != None:
-            torch.autograd.backward([attack_loss,back_loss,camera_loss,craft_loss,equip_loss,\
-                    forward_loss,jump_loss,left_loss,nearby_craft_loss,nearby_smelt_loss,place_loss, \
-                    right_loss,sneak_loss,sprint_loss,mh_state_loss,inventory_state_loss, \
-                    world_state_loss, q_value_loss])
-        else:
+        if q_value_loss is None and q_diff_loss is None:
             torch.autograd.backward([attack_loss,back_loss,camera_loss,craft_loss,equip_loss,\
                     forward_loss,jump_loss,left_loss,nearby_craft_loss,nearby_smelt_loss,place_loss, \
                     right_loss,sneak_loss,sprint_loss,mh_state_loss,inventory_state_loss, \
                     world_state_loss])
+        else:
+            torch.autograd.backward([attack_loss,back_loss,camera_loss,craft_loss,equip_loss,\
+                    forward_loss,jump_loss,left_loss,nearby_craft_loss,nearby_smelt_loss,place_loss, \
+                    right_loss,sneak_loss,sprint_loss,mh_state_loss,inventory_state_loss, \
+                    world_state_loss, q_diff_loss, q_value_loss])
 
 
         torch.nn.utils.clip_grad_norm_(self.actor_local.parameters(), 1)
@@ -320,6 +322,45 @@ class Agent():
         print("Actor Losses:{} {}".format(loss_1.item(), loss_2.item()))
         return loss_1, loss_2
 
+
+    def learn_2(self, experiences, gamma):
+        
+        #states, actions, rewards, next_states, dones, indices, weights = experiences
+        ( a_states_mh, a_states_invent, w_states, actions, rewards, a_next_states_mh, a_next_states_invent, w_next_states, dones ) = experiences
+
+        a_states_mh = a_states_mh.to(device)
+        a_states_invent = a_states_invent.to(device)
+        w_states = w_states.to(device)
+
+        a_next_states_mh = a_next_states_mh.to(device)
+        a_next_state_invent = a_next_states_invent.to(device)
+        w_next_states = w_next_states.to(device)
+
+
+
+        #get next state (from experiences) descriptors and Q_next
+        with torch.no_grad():
+            _, _, _, Q_next, _, _, _, wsd_next, mhd_next, inventd_next = \
+                self.actor_local(a_next_states_mh, w_next_states, a_next_states_invent)
+            Q_next = Q_next.detach()
+            Q_current_2 = rewards + (gamma * Q_next * (1 - dones))
+            wsd_next = wsd_next.detach()
+            mhd_next = mhd_next.detach()
+            inventd_next = inventd_next.detach()
+
+
+
+        # predict actions and next state with 
+        _, _, action_logits, Q_current, n_wsd_predict, n_asmhd_predict, n_asinventd_predict, _, _, _ = \
+                self.actor_local(a_states_mh, w_states, a_states_invent)
+
+        # calculate loss for actor
+        loss_1, loss_2 = self.get_action_loss(actions, action_logits, \
+                F.mse_loss(mhd_next, n_asmhd_predict), F.mse_loss(inventd_next, n_asinventd_predict), \
+                F.mse_loss(wsd_next, n_wsd_predict), F.mse_loss(Q_current, Q_current_2), -Q_current.mean())
+
+        print("Actor Losses:{} {}".format(loss_1.item(), loss_2.item()))
+        return loss_1, loss_2
 
 
     def learn_3(self, experiences, gamma):

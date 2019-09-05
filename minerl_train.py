@@ -3,6 +3,7 @@ import minerl
 import logging
 import torch
 import torchvision.transforms as transforms
+from torch.utils.tensorboard import SummaryWriter
 from importlib import reload
 from collections import deque, namedtuple
 
@@ -248,11 +249,12 @@ agent_state_s = len(list(mainhand_a.values())) + len(list(inventory_a.values()))
 world_state_s = pov_a.shape
 action_s = len(list(action_a.values()))
 
+writer = SummaryWriter()
 
     
 data = minerl.data.make(
     'MineRLObtainDiamondDense-v0',
-    data_dir="/home/darici/minerl/minerl/data")
+    data_dir="/home/desin/minerl/data")
 
 agent = Agent(agent_mh_size=3, agent_inventory_size = 18, world_state_size=(64, 64, 3), action_size=14, random_seed=0)
 
@@ -269,7 +271,6 @@ agent_state_list_names = ['damage', 'maxDamage', 'type', 'coal', 'cobblestone', 
                     'torch', 'wooden_axe', 'wooden_pickaxe']
 agent_state_list = []
 
-loss_list = deque(maxlen=10000)
 
 pyplot.ion()
 pyplot.show()
@@ -291,7 +292,7 @@ for current_state, action, reward, next_state, done in data.sarsd_iter(num_epoch
         eps_i = eps_i+1
         done = np.delete(done, -1)
         experiences, mh_ts, invent_ts = extract_data_from_dict(current_state, action, reward, next_state, done)
-        agent.learn_from_players(experiences, mh_ts, invent_ts, loss_list)
+        agent.learn_from_players(experiences, mh_ts, invent_ts, writer)
         
         
         if (reward[-1] > 0):
@@ -312,12 +313,22 @@ for current_state, action, reward, next_state, done in data.sarsd_iter(num_epoch
 
             # collect camera pitch/yaw values produces
             camera_list.append(action_1_raw[0][2:4].cpu().numpy())
+
+            writer.add_scalars('pitch/yaw', {'picth':action_1_raw[0][2], 'yaw':action_1_raw[0][3]})
+
             # count actions other than camera
             actions_only = np.concatenate(((action_1_raw[0])[0:2].cpu().int(), (action_1_raw[0])[4:].cpu().int()))
             one_hot_actions = np.zeros((action_s-1,10), dtype=int)
             one_hot_actions[np.arange(action_s-1), actions_only] = 1
 
             action_counts = action_counts + one_hot_actions
+
+
+            writer.add_scalars('actions', {"attack":action_1_raw[0][0], "back":action_1_raw[0][1], \
+                "craft":action_1_raw[0][0], "equip":action_1_raw[0][4], "forward":action_1_raw[0][5], \
+                "jump":action_1_raw[0][6], "left":action_1_raw[0][7], "nearbyCraft":action_1_raw[0][8], \
+                "nearbySmelt":action_1_raw[0][9], "place":action_1_raw[0][10], "right":action_1_raw[0][11], \
+                "sneak":action_1_raw[0][12], "sprint":action_1_raw[0][13]})
 
             if (eps_i%100==0):
 

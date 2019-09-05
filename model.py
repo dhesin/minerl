@@ -298,7 +298,7 @@ class Actor(nn.Module):
         q_current = self.predict_qvalue(z)
 
         
-        return actions, actions_raw, action_logits, q_current, n_wsd_predict, n_asmhd_predict, n_asinventoryd_predict
+        return actions, actions_raw, action_logits, q_current, n_wsd_predict, n_asmhd_predict, n_asinventoryd_predict, wsd, asmhd, asinventoryd
 
     def get_wsd(self, world_state):
 

@@ -152,9 +152,14 @@ def extract_data_from_dict(current_state, action, reward, next_state, done):
     
     cam_0 = action["camera"][:,0]
     cam_1 = action["camera"][:,1]
+    #print(cam_0)
+    #print(cam_1)
     
     
     agent_actions = []
+    agent_actions_onehot = []
+    sequence_len = len(action['attack'])
+
     agent_actions.append(action["attack"])
     agent_actions.append(action["back"])
     agent_actions.append(cam_0)
@@ -171,15 +176,51 @@ def extract_data_from_dict(current_state, action, reward, next_state, done):
     agent_actions.append(action["sneak"])
     agent_actions.append(action["sprint"])
     
+
+    agent_actions_onehot.append(action['attack'])
+    agent_actions_onehot.append(action['back'])
+    agent_actions_onehot.append(cam_0)
+    agent_actions_onehot.append(cam_1)
+    craft = np.zeros((sequence_len,5))
+    craft[np.arange(sequence_len), action['craft']] = 1
+    agent_actions_onehot.append(craft.tolist())
+    equip = np.zeros((sequence_len,8))
+    equip[np.arange(sequence_len), action['equip']] = 1
+    agent_actions_onehot.append(equip.tolist())
+    agent_actions_onehot.append(action['forward'])
+    agent_actions_onehot.append(action['jump'])
+    agent_actions_onehot.append(action['left'])
+    nearby_craft = np.zeros((sequence_len,8))
+    nearby_craft[np.arange(sequence_len),action['nearbyCraft']] = 1
+    agent_actions_onehot.append(nearby_craft.tolist())
+    nearby_smelt = np.zeros((sequence_len,3))
+    nearby_smelt[np.arange(sequence_len), action['nearbySmelt']] = 1
+    agent_actions_onehot.append(nearby_smelt.tolist())
+    place = np.zeros((sequence_len,7))
+    place[np.arange(sequence_len), action['place']] = 1
+    agent_actions_onehot.append(place.tolist())
+    agent_actions_onehot.append(action['right'])
+    agent_actions_onehot.append(action['sneak'])
+    agent_actions_onehot.append(action['sprint'])
+
+    #print(agent_actions_onehot)
+
+
     entropy_t = 0.0
-    for i in range(len(agent_actions)):
-        entropy_t = entropy_t + entropy(agent_actions[i])
-    #print(entropy_t)
+    #for i in range(len(agent_actions)):
+    #    print(entropy(agent_actions[i]))
+    
+
     #print(agent_actions[5])
     #print(entropy(agent_actions[5]))
 
     vertical_agent_actions = [np.vstack(item) for item in agent_actions]
     concat_agent_actions = np.concatenate(vertical_agent_actions, axis=1)
+
+    vertical_agent_actions_onehot = [np.vstack(item) for item in agent_actions_onehot]
+    #print(vertical_agent_actions_onehot)
+    concat_agent_actions_onehot = np.concatenate(vertical_agent_actions_onehot, axis=1)
+    #print(concat_agent_actions_onehot)
 
 
     #print(concat_agent_invent)
@@ -189,13 +230,13 @@ def extract_data_from_dict(current_state, action, reward, next_state, done):
     #print(concat_next_agent_invent)
 
     experiences = np.array(list(experiences))
-    experiences[-1][4] = experiences[-1][4]+entropy_t
+    #experiences[-1][4] = experiences[-1][4]+entropy_t
     return experiences[-1], agent_mh_ts, agent_inventory_ts
  
 
 
 env = gym.make("MineRLObtainDiamondDense-v0") 
-
+env.seed(1255)
 obs_a = env.reset()
 
 action_a = env.action_space.sample()
@@ -211,16 +252,16 @@ action_s = len(list(action_a.values()))
     
 data = minerl.data.make(
     'MineRLObtainDiamondDense-v0',
-    data_dir="/home/desin/minerl/data")
+    data_dir="/home/darici/minerl/minerl/data")
 
 agent = Agent(agent_mh_size=3, agent_inventory_size = 18, world_state_size=(64, 64, 3), action_size=14, random_seed=0)
 
-action_list = np.zeros((action_s-1, 10), dtype=int)
-action_list_names = ("attack", "back", "craft", "equip",
+action_counts = np.zeros((action_s-1, 10), dtype=int)
+action_names = ("attack", "back", "craft", "equip",
                      "forward", "jump", "left", "nearbyCraft", "nearbySmelt", 
                      "place", "right", "sneak", "sprint")
-camera_list = []
-camera_action_names = ("yaw", "pitch")
+camera_list = deque(maxlen=10000)
+camera_action_names = ("pitch", "yaw")
 
 agent_state_list_names = ['damage', 'maxDamage', 'type', 'coal', 'cobblestone', 'crafting_table', 
                     'dirt', 'furnace','iron_axe', 'iron_ingot', 'iron_ore', 'iron_pickaxe', 
@@ -228,71 +269,92 @@ agent_state_list_names = ['damage', 'maxDamage', 'type', 'coal', 'cobblestone', 
                     'torch', 'wooden_axe', 'wooden_pickaxe']
 agent_state_list = []
 
+loss_list = deque(maxlen=10000)
 
 pyplot.ion()
 pyplot.show()
-fig= pyplot.figure()
-fig.set_size_inches(12, 6)
+fig_1 = pyplot.figure(num=1)
+fig_1.set_size_inches(12, 6)
+pyplot.ylim(-50,50)
+fig_2 = pyplot.figure(num=2)
+pyplot.ylim(0,10)
 
 
 # Iterate through a single epoch gathering sequences of at most 32 steps
-i=0
+eps_i=0
 done_1=False
 active_reward=0
-for current_state, action, reward, next_state, done \
-    in data.sarsd_iter(
-        num_epochs=10, max_sequence_len=32):
+for current_state, action, reward, next_state, done in data.sarsd_iter(num_epochs=10, max_sequence_len=32, seed=0):
 
-        i = i+1
 
-            #continue
+        #print(action['camera'])
+        eps_i = eps_i+1
         done = np.delete(done, -1)
         experiences, mh_ts, invent_ts = extract_data_from_dict(current_state, action, reward, next_state, done)
-        agent.learn_from_players(experiences, mh_ts, invent_ts)
+        agent.learn_from_players(experiences, mh_ts, invent_ts, loss_list)
         
-        if (np.any(reward)):
-        	print("reward...{} ".format(active_reward))
         
+        if (reward[-1] > 0):
+            print("Training Reward:{}".format(reward[-1]))
+
         if (done_1==False):
-            action_1, action_1_raw,  agent_mh_raw, agent_inventory_raw = agent.act(mainhand_a, inventory_a, pov_a)
+            with torch.no_grad():
+                action_1, action_1_raw, _ , _  = agent.act(mainhand_a, inventory_a, pov_a)
             obs_1, reward_1, done_1, info = env.step(action_1)
-        
+            
+            #print(action_1_raw)
             if (reward_1 >0):
                 active_reward = active_reward+1
-                print("REWARD !!!!!!!!!!!!!!!!!!!!!!")
+                print("REWARD !!!!!!!!!!!!!!!!!!!!!! {}".format(active_reward))
+            if (active_reward > 0):
+                print("REWARD !!!!! {}".format(active_reward))
 
-            #camera_list.append(action_1_raw[0][2:4].cpu().numpy())
-            #agent_state_list.append(agent_state_raw)
 
+            # collect camera pitch/yaw values produces
+            camera_list.append(action_1_raw[0][2:4].cpu().numpy())
+            # count actions other than camera
+            actions_only = np.concatenate(((action_1_raw[0])[0:2].cpu().int(), (action_1_raw[0])[4:].cpu().int()))
+            one_hot_actions = np.zeros((action_s-1,10), dtype=int)
+            one_hot_actions[np.arange(action_s-1), actions_only] = 1
 
-            #print((action_1_raw[0])[4:].cpu().int()) 
+            action_counts = action_counts + one_hot_actions
 
-            #actions_1 = np.concatenate(((action_1_raw[0])[0:2].cpu().int(), (action_1_raw[0])[4:].cpu().int()))
-            #camera = action_1_raw[2:4]
-            #one_hot_actions =np.zeros((action_s-1,10), dtype=int)
-            #one_hot_actions[np.arange(action_s+1), action_1_raw[0].cpu().int()]=1
-            #one_hot_actions[np.arange(action_s-1), actions_1]=1
+            if (eps_i%100==0):
 
-            #action_list = action_list+one_hot_actions
+                 pyplot.figure(1)
+                 pyplot.clf()
+                 for i,x in enumerate(action_names):
+                     max_s = 1+max(action_counts[i,:])/100
+                     pyplot.scatter([action_names[i]]*10, np.arange(10), s=action_counts[i,:]/max_s)
 
-            if (i%100000==0):
-                #print(agent_state_raw)
-                #print(action_list)
-                for i,x in enumerate(action_list_names):
-                    max_s = 1+max(action_list[i,:])/100
-                    pyplot.scatter([action_list_names[i]]*10, np.arange(10), s=action_list[i,:]/max_s)
+                 for xe, ye in zip(camera_action_names, [[(camera_list[li])[ci]  for li in range(len(camera_list))] for ci in range(len(camera_action_names)) ]):
+                     pyplot.scatter([xe] * len(ye), ye)
 
-                for xe, ye in zip(camera_action_names, [[(camera_list[li])[ci]  for li in range(len(camera_list))] for ci in range(len(camera_action_names)) ]):
-                    pyplot.scatter([xe] * len(ye), ye)
+                 pyplot.draw()
+                 pyplot.pause(0.001)
 
-                pyplot.draw()
-                pyplot.pause(0.001)
-
+                 pyplot.figure(2)
+                 pyplot.clf()
+                 pyplot.ylim(0,10)
+                 pyplot.plot(np.arange(len(loss_list)), [sublist[0] for sublist in loss_list])
+                 pyplot.plot(np.arange(len(loss_list)), [sublist[1] for sublist in loss_list])
+                 pyplot.draw()
+                 pyplot.pause(0.001)
         else:
+            print("RESET ----------------")
+            active_reward = 0
+            env.seed(1255)
             obs_1 = env.reset()
             done_1=False
-            print("RESET ----------------")
+            
 
+        print(info)
+
+        if eps_i % 1000 == 0:
+            print(agent.actor_scheduler.get_lr())
+            print('\nEpisode:{}\t       '.format(eps_i), end="")
+            torch.save(agent.actor_local.state_dict(), 'checkpoint_actor.pth')
+ 
         #action_1 = env.action_space.sample()
         #print(action_1)
         #experience = extract_data_from_dict_single(obs_a, action_1, reward_1, obs_1, done_1)

@@ -38,10 +38,22 @@ class Actor(nn.Module):
         self.cnn.add_module('norm3', nn.BatchNorm2d(growth_rate))
         self.cnn.add_module('relu3', nn.ReLU(inplace=True))   
         self.fc1 = nn.Linear(growth_rate,20)
+
+
+        # agent's pov after flattening 2D to 1D
+        self.pov_flat = nn.Sequential()
+        self.pov_flat.add_module('norm', nn.BatchNorm1d(n_c*i_h*i_w))
+        self.pov_flat.add_module('linear1', nn.Linear(n_c*i_h*i_w, 1000, bias=False))
+        self.pov_flat.add_module('relu1', nn.ReLU(inplace=True))
+        self.pov_flat.add_module('linear2', nn.Linear(1000, 200, bias=False))   
+        self.pov_flat.add_module('relu2', nn.ReLU(inplace=True))
+        self.pov_flat.add_module('linear3', nn.Linear(200, 20, bias=False))   
+        self.pov_flat.add_module('relu3', nn.ReLU(inplace=True))
+
         
         # agent's mainhand
         self.mh = nn.Sequential()
-        self.mh.add_module('norm', nn.LayerNorm(agent_mh_size))
+        self.mh.add_module('norm', nn.BatchNorm1d(agent_mh_size))
         self.mh.add_module('linear1', nn.Linear(agent_mh_size, 100, bias=False))
         self.mh.add_module('relu1', nn.ReLU(inplace=True))
         self.mh.add_module('linear2', nn.Linear(100, 20, bias=False))   
@@ -50,7 +62,7 @@ class Actor(nn.Module):
         
         # agent'inventory
         self.inventory = nn.Sequential()
-        self.inventory.add_module('norm', nn.LayerNorm(agent_inventory_size))
+        self.inventory.add_module('norm', nn.BatchNorm1d(agent_inventory_size))
         self.inventory.add_module('linear1', nn.Linear(agent_inventory_size, 100, bias=False))
         self.inventory.add_module('relu1', nn.ReLU(inplace=True))
         self.inventory.add_module('linear2', nn.Linear(100, 20, bias=False))
@@ -58,8 +70,8 @@ class Actor(nn.Module):
        
         
         self.cnn_mh_inventory = nn.Sequential()
-        self.cnn_mh_inventory.add_module('norm', nn.LayerNorm(60))
-        self.cnn_mh_inventory.add_module('linear1', nn.Linear(60, 100, bias=False))
+        self.cnn_mh_inventory.add_module('norm', nn.BatchNorm1d(80))
+        self.cnn_mh_inventory.add_module('linear1', nn.Linear(80, 100, bias=False))
         self.cnn_mh_inventory.add_module('relu1', nn.ReLU(inplace=True))
         self.cnn_mh_inventory.add_module('linear2', nn.Linear(100, 40, bias=False))
         self.cnn_mh_inventory.add_module('relu2', nn.ReLU(inplace=True))
@@ -83,44 +95,51 @@ class Actor(nn.Module):
                                             })
  
         self.activation_modules = nn.ModuleDict({
-            'attack': nn.Tanh(),
-            'back': nn.Tanh(),
-            'camera': nn.Identity(),
-            'craft': nn.Tanh(),
-            'equip': nn.Tanh(),
-            'forward_': nn.Tanh(),
-            'jump': nn.Tanh(),
-            'left': nn.Tanh(),
-            'nearbyCraft': nn.Tanh(),
-            'nearbySmelt': nn.Tanh(),
-            'place': nn.Tanh(),
-            'right': nn.Tanh(),
-            'sneak': nn.Tanh(),
-            'sprint': nn.Tanh(),
+            'attack': nn.Identity(),
+            'back': nn.Identity(),
+            'camera': nn.Tanhshrink(),
+            'craft': nn.Identity(),
+            'equip': nn.Identity(),
+            'forward_': nn.Identity(),
+            'jump': nn.Identity(),
+            'left': nn.Identity(),
+            'nearbyCraft': nn.Identity(),
+            'nearbySmelt': nn.Identity(),
+            'place': nn.Identity(),
+            'right': nn.Identity(),
+            'sneak': nn.Identity(),
+            'sprint': nn.Identity(),
         })
 
         self.next_state_predict_cnn = nn.Sequential()
-        self.next_state_predict_cnn.add_module('norm', nn.LayerNorm(20+action_size+1))
-        self.next_state_predict_cnn.add_module('linear1', nn.Linear(20+action_size+1, 100, bias=False))
+        self.next_state_predict_cnn.add_module('norm', nn.BatchNorm1d(40+action_size+1))
+        self.next_state_predict_cnn.add_module('linear1', nn.Linear(40+action_size+1, 100, bias=False))
         self.next_state_predict_cnn.add_module('relu1', nn.ReLU(inplace=True))
         self.next_state_predict_cnn.add_module('linear2', nn.Linear(100, 20, bias=False))
         self.next_state_predict_cnn.add_module('relu2', nn.ReLU(inplace=True))
  
         self.next_state_predict_agent_mh = nn.Sequential()
-        self.next_state_predict_agent_mh.add_module('norm', nn.LayerNorm(20+action_size+1))
-        self.next_state_predict_agent_mh.add_module('linear1', nn.Linear(20+action_size+1, 100, bias=False))
+        self.next_state_predict_agent_mh.add_module('norm', nn.BatchNorm1d(40+action_size+1))
+        self.next_state_predict_agent_mh.add_module('linear1', nn.Linear(40+action_size+1, 100, bias=False))
         self.next_state_predict_agent_mh.add_module('relu1', nn.ReLU(inplace=True))
         self.next_state_predict_agent_mh.add_module('linear2', nn.Linear(100, 20, bias=False))
         self.next_state_predict_agent_mh.add_module('relu2', nn.ReLU(inplace=True))
 
         self.next_state_predict_agent_inventory = nn.Sequential()
-        self.next_state_predict_agent_inventory.add_module('norm', nn.LayerNorm(20+action_size+1))
-        self.next_state_predict_agent_inventory.add_module('linear1', nn.Linear(20+action_size+1, 100, bias=False))
+        self.next_state_predict_agent_inventory.add_module('norm', nn.BatchNorm1d(40+action_size+1))
+        self.next_state_predict_agent_inventory.add_module('linear1', nn.Linear(40+action_size+1, 100, bias=False))
         self.next_state_predict_agent_inventory.add_module('relu1', nn.ReLU(inplace=True))
         self.next_state_predict_agent_inventory.add_module('linear2', nn.Linear(100, 20, bias=False))
         self.next_state_predict_agent_inventory.add_module('relu2', nn.ReLU(inplace=True))
        
-
+        self.predict_qvalue = nn.Sequential()
+        self.predict_qvalue.add_module('norm', nn.BatchNorm1d(40+action_size+1))
+        self.predict_qvalue.add_module('linear1', nn.Linear(40+action_size+1, 100, bias=False))
+        self.predict_qvalue.add_module('relu1', nn.ReLU(inplace=True))
+        self.predict_qvalue.add_module('linear2', nn.Linear(100, 50, bias=False))
+        self.predict_qvalue.add_module('relu2', nn.ReLU(inplace=True))
+        self.predict_qvalue.add_module('linear3', nn.Linear(50, 1, bias=False))
+        self.predict_qvalue.add_module('relu3', nn.ReLU(inplace=True))
 
         self.reset_parameters()
 
@@ -133,6 +152,13 @@ class Actor(nn.Module):
             elif isinstance(m, nn.Linear):
                 nn.init.xavier_uniform_(m.weight, gain=nn.init.calculate_gain('relu'))
             
+        for m in self.pov_flat:
+            if isinstance(m, nn.Conv2d):
+                torch.nn.init.xavier_normal_(m.weight, gain=nn.init.calculate_gain('relu'))
+                #nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight, gain=nn.init.calculate_gain('relu'))
+
         for m in self.mh:
             if isinstance(m, nn.Conv2d):
                 torch.nn.init.xavier_normal_(m.weight, gain=nn.init.calculate_gain('relu'))
@@ -147,8 +173,6 @@ class Actor(nn.Module):
             elif isinstance(m, nn.Linear):
                 nn.init.xavier_uniform_(m.weight, gain=nn.init.calculate_gain('relu'))
 
-
-
         for m in self.cnn_mh_inventory:
             if isinstance(m, nn.Conv2d):
                 torch.nn.init.xavier_normal_(m.weight, gain=nn.init.calculate_gain('relu'))
@@ -162,7 +186,7 @@ class Actor(nn.Module):
                 torch.nn.init.xavier_normal_(m.weight, gain=nn.init.calculate_gain('tanh'))
                 #nn.init.constant_(m.bias, 0)
             elif isinstance(m, nn.Linear):
-                nn.init.xavier_uniform_(m.weight, gain=nn.init.calculate_gain('tanh'))
+                nn.init.xavier_uniform_(m.weight)
                 
         for m in self.next_state_predict_cnn:
             if isinstance(m, nn.Conv2d):
@@ -185,6 +209,12 @@ class Actor(nn.Module):
             elif isinstance(m, nn.Linear):
                 nn.init.xavier_uniform_(m.weight, gain=nn.init.calculate_gain('relu'))
 
+        for m in self.predict_qvalue:
+            if isinstance(m, nn.Conv2d):
+                torch.nn.init.xavier_normal_(m.weight, gain=nn.init.calculate_gain('tanh'))
+                #nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight, gain=nn.init.calculate_gain('relu'))
                                                     
     def forward(self, agent_state_mh, world_state, agent_state_inventory):
         """Build an actor (policy) network that maps states -> actions."""
@@ -192,35 +222,44 @@ class Actor(nn.Module):
         x = self.fc1(x)
         wsd = F.relu(x)  # world state descriptor
 
+        x = torch.flatten(world_state, start_dim=1)
+        pov_flat = self.pov_flat(x)
 
         asmhd = self.mh(agent_state_mh) # agent state mainhand descriptor
         asinventoryd = self.inventory(agent_state_inventory) # agent state inventory descriptor
 
-
-        z = torch.cat([wsd, asmhd, asinventoryd], 1)
-        z = self.cnn_mh_inventory(z)
+        z = torch.cat([wsd, asmhd, asinventoryd, pov_flat], 1)
+        combined_state = self.cnn_mh_inventory(z)
+        self.combined_state = combined_state.detach()
         
         actions = {}
         actions_raw = []
+        action_logits = []
         
         for action in self.action_modules:
             
-            out = self.action_modules[action](z)
+            out = self.action_modules[action](combined_state)
             out = self.activation_modules[action](out)
             
             if action == "forward_":
                 action = "forward"
             
             if action in ["craft", "equip","nearbyCraft","nearbySmelt","place"]:
+                action_logits.append(out)
                 out = F.softmax(out, dim=1)
                 out = out.argmax(dim=1, keepdim=True).float()
             elif action != "camera":
+                action_logits.append(out)
+                out = torch.sigmoid(out)
                 zeros = torch.zeros_like(out)
                 ones = torch.ones_like(out)
-                out = torch.where(out > 0., ones, zeros).squeeze(dim=0).float()
+                out = torch.where(out > 0.5, ones, zeros).squeeze(dim=0).float()
             elif action == "camera":
                 out = torch.clamp(out, min=-180, max=180)
                 out = out.float()
+                #out[0][0] = out[0][0]/100.0
+                #out[0][1] = out[0][1]
+                action_logits.append(out)
                                 
                 
             # raw action tensor for processing    
@@ -241,19 +280,25 @@ class Actor(nn.Module):
 
                    
         actions_raw = torch.cat(actions_raw, dim=1)
+        self.actions_raw = actions_raw.detach()
+        #print(actions_raw)
+        action_logits = torch.cat(action_logits, dim=1)
+        #print(action_probs)
 
-        z = torch.cat([wsd, actions_raw], 1)
+        z = torch.cat([combined_state, actions_raw], 1)
         n_wsd_predict = self.next_state_predict_cnn(z)
 
-        z = torch.cat([asmhd, actions_raw], 1)
+        z = torch.cat([combined_state, actions_raw], 1)
         n_asmhd_predict = self.next_state_predict_agent_mh(z)
 
-        z = torch.cat([asinventoryd, actions_raw], 1)
+        z = torch.cat([combined_state, actions_raw], 1)
         n_asinventoryd_predict = self.next_state_predict_agent_inventory(z)
 
+        z = torch.cat([combined_state, self.actions_raw], 1)
+        q_current = self.predict_qvalue(z)
+
         
-        
-        return actions, actions_raw, n_wsd_predict, n_asmhd_predict, n_asinventoryd_predict
+        return actions, actions_raw, action_logits, q_current, n_wsd_predict, n_asmhd_predict, n_asinventoryd_predict
 
     def get_wsd(self, world_state):
 
@@ -270,12 +315,17 @@ class Actor(nn.Module):
         asinventoryd = self.inventory(agent_state_inventory) # agent state descriptor
         return asinventoryd
 
+    def get_qvalue(self):
+        q_predict = torch.cat([self.combined_state, self.actions_raw], 1)
+        q_predict = self.predict_qvalue(q_predict)
+        return q_predict
+
 
 
 class Critic(nn.Module):
     """Critic (Value) Model."""
 
-    def __init__(self, agent_state_size, world_state_size, action_size, seed, growth_rate=128):
+    def __init__(self, agent_mh_size, agent_inventory_size, world_state_size, action_size, seed, growth_rate=128):
         """Initialize parameters and build model.
         Params
         ======
@@ -301,19 +351,37 @@ class Critic(nn.Module):
         self.cnn.add_module('norm3', nn.BatchNorm2d(growth_rate))
         self.cnn.add_module('relu3', nn.ReLU(inplace=True))   
         self.fc1 = nn.Linear(growth_rate,20)
-        #self.cnn.add_module('linear1', nn.Linear(growth_rate, 20, bias=False))
-        #self.cnn.add_module('relu4', nn.ReLU(inplace=True))   
+
+
+        # agent's pov after flattening 2D to 1D
+        self.pov_flat = nn.Sequential()
+        self.pov_flat.add_module('norm', nn.BatchNorm1d(n_c*i_h*i_w))
+        self.pov_flat.add_module('linear1', nn.Linear(n_c*i_h*i_w, 1000, bias=False))
+        self.pov_flat.add_module('relu1', nn.ReLU(inplace=True))
+        self.pov_flat.add_module('linear2', nn.Linear(1000, 200, bias=False))   
+        self.pov_flat.add_module('relu2', nn.ReLU(inplace=True))
+        self.pov_flat.add_module('linear3', nn.Linear(200, 20, bias=False))   
+        self.pov_flat.add_module('relu3', nn.ReLU(inplace=True))
        
-        # agent's mainhand and inventory
-        self.mh_inventory = nn.Sequential()
-        self.mh_inventory.add_module('norm', nn.LayerNorm(agent_state_size))
-        self.mh_inventory.add_module('linear1', nn.Linear(agent_state_size, 100, bias=False))
-        self.mh_inventory.add_module('relu1', nn.ReLU(inplace=True))
-        self.mh_inventory.add_module('linear2', nn.Linear(100, 20, bias=False))    
-        self.mh_inventory.add_module('relu2', nn.ReLU(inplace=True))
+        # agent's mainhand
+        self.mh = nn.Sequential()
+        self.mh.add_module('norm', nn.BatchNorm1d(agent_mh_size))
+        self.mh.add_module('linear1', nn.Linear(agent_mh_size, 100, bias=False))
+        self.mh.add_module('relu1', nn.ReLU(inplace=True))
+        self.mh.add_module('linear2', nn.Linear(100, 20, bias=False))
+        self.mh.add_module('relu2', nn.ReLU(inplace=True))
+
+       
+        # agent's inventory
+        self.inventory = nn.Sequential()
+        self.inventory.add_module('norm', nn.BatchNorm1d(agent_inventory_size))
+        self.inventory.add_module('linear1', nn.Linear(agent_inventory_size, 100, bias=False))
+        self.inventory.add_module('relu1', nn.ReLU(inplace=True))
+        self.inventory.add_module('linear2', nn.Linear(100, 20, bias=False))    
+        self.inventory.add_module('relu2', nn.ReLU(inplace=True))
                          
 
-        # agent's mainhand, inventory, pov, action combined
+        # agent's action / some are embedded
         self.action_modules = nn.ModuleDict({
             'attack': nn.Identity(),
             'back': nn.Identity(),
@@ -333,31 +401,42 @@ class Critic(nn.Module):
         })
  
 
-        # agent's actions
+        # agent's actions combined
         self.combined_actions = nn.Sequential()
-        self.combined_actions.add_module('norm', nn.LayerNorm(24))
+        self.combined_actions.add_module('norm', nn.BatchNorm1d(24))
         self.combined_actions.add_module('linear1', nn.Linear(24, 100))
         self.combined_actions.add_module('relu1', nn.ReLU(inplace=True))
         self.combined_actions.add_module('linear2', nn.Linear(100, 20))    
         self.combined_actions.add_module('relu2', nn.ReLU(inplace=True))
 
-        # agent's actions
+        # agent's actions/pov/pov flat/mh/inventory combined - Q value estimation
         self.combined = nn.Sequential()
-        self.combined.add_module('norm', nn.LayerNorm(60))
-        self.combined.add_module('linear1', nn.Linear(60, 1, bias=False))
-        self.combined.add_module('relu1', nn.Tanh())
-        #self.combined.add_module('linear2', nn.Linear(25, 1, bias=False))    
-        #self.combined.add_module('relu2', nn.ReLU(inplace=True))
+        self.combined.add_module('norm', nn.BatchNorm1d(100))
+        self.combined.add_module('linear1', nn.Linear(100, 25, bias=False))
+        self.combined.add_module('relu1', nn.ReLU(inplace=True))
+        self.combined.add_module('linear2', nn.Linear(25, 1, bias=False))    
+        self.combined.add_module('relu2', nn.Tanh())
     
+        self.next_state_predict_cnn = nn.Sequential()
+        self.next_state_predict_cnn.add_module('norm', nn.BatchNorm1d(100))
+        self.next_state_predict_cnn.add_module('linear1', nn.Linear(100, 100, bias=False))
+        self.next_state_predict_cnn.add_module('relu1', nn.ReLU(inplace=True))
+        self.next_state_predict_cnn.add_module('linear2', nn.Linear(100, 20, bias=False))
+        self.next_state_predict_cnn.add_module('relu2', nn.ReLU(inplace=True))
+ 
+        self.next_state_predict_agent_mh = nn.Sequential()
+        self.next_state_predict_agent_mh.add_module('norm', nn.BatchNorm1d(100))
+        self.next_state_predict_agent_mh.add_module('linear1', nn.Linear(100, 100, bias=False))
+        self.next_state_predict_agent_mh.add_module('relu1', nn.ReLU(inplace=True))
+        self.next_state_predict_agent_mh.add_module('linear2', nn.Linear(100, 20, bias=False))
+        self.next_state_predict_agent_mh.add_module('relu2', nn.ReLU(inplace=True))
 
-        # reward predictor net
-        self.dist_net = torch.nn.Sequential()
-        self.dist_net.add_module('norm', torch.nn.LayerNorm(2*agent_state_size))
-        self.dist_net.add_module('linear1', torch.nn.Linear(2*agent_state_size, 50, bias=False))
-        self.dist_net.add_module('tanh1', torch.nn.Tanh())
-        self.dist_net.add_module('linear2', torch.nn.Linear(50, 1, bias=False))
-        self.dist_net.add_module('tanh2', torch.nn.Tanh())
-
+        self.next_state_predict_agent_inventory = nn.Sequential()
+        self.next_state_predict_agent_inventory.add_module('norm', nn.BatchNorm1d(100))
+        self.next_state_predict_agent_inventory.add_module('linear1', nn.Linear(100, 100, bias=False))
+        self.next_state_predict_agent_inventory.add_module('relu1', nn.ReLU(inplace=True))
+        self.next_state_predict_agent_inventory.add_module('linear2', nn.Linear(100, 20, bias=False))
+        self.next_state_predict_agent_inventory.add_module('relu2', nn.ReLU(inplace=True))
         self.reset_parameters()
 
     def reset_parameters(self):
@@ -369,7 +448,21 @@ class Critic(nn.Module):
             elif isinstance(m, nn.Linear):
                 nn.init.xavier_uniform_(m.weight, gain=nn.init.calculate_gain('relu'))
 
-        for m in self.mh_inventory:
+        for m in self.pov_flat:
+            if isinstance(m, nn.Conv2d):
+                torch.nn.init.xavier_normal_(m.weight, gain=nn.init.calculate_gain('relu'))
+                #nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight, gain=nn.init.calculate_gain('relu'))
+
+        for m in self.mh:
+            if isinstance(m, nn.Conv2d):
+                torch.nn.init.xavier_normal_(m.weight, gain=nn.init.calculate_gain('relu'))
+                #nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight, gain=nn.init.calculate_gain('relu'))
+
+        for m in self.inventory:
             if isinstance(m, nn.Conv2d):
                 torch.nn.init.xavier_normal_(m.weight, gain=nn.init.calculate_gain('relu'))
                 #nn.init.constant_(m.bias, 0)
@@ -400,19 +493,41 @@ class Critic(nn.Module):
             elif isinstance(m, nn.Linear):
                 nn.init.xavier_normal_(m.weight, gain=nn.init.calculate_gain('tanh'))
 
-        for m in self.dist_net:
-            if isinstance(m, torch.nn.Linear):
-                torch.nn.init.xavier_uniform_(m.weight, gain=torch.nn.init.calculate_gain('tanh'))
-       
+        for m in self.next_state_predict_cnn:
+            if isinstance(m, nn.Conv2d):
+                torch.nn.init.xavier_normal_(m.weight, gain=nn.init.calculate_gain('tanh'))
+                #nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight, gain=nn.init.calculate_gain('relu'))
+ 
+        for m in self.next_state_predict_agent_mh:
+            if isinstance(m, nn.Conv2d):
+                torch.nn.init.xavier_normal_(m.weight, gain=nn.init.calculate_gain('tanh'))
+                #nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight, gain=nn.init.calculate_gain('relu'))
 
-    def forward(self, agent_state, world_state, action):
+        for m in self.next_state_predict_agent_inventory:
+            if isinstance(m, nn.Conv2d):
+                torch.nn.init.xavier_normal_(m.weight, gain=nn.init.calculate_gain('tanh'))
+                #nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight, gain=nn.init.calculate_gain('relu'))
+
+
+    def forward(self, agent_mh_state, agent_inventory_state, world_state, action):
         """Build a critic (value) network that maps (state, action) pairs -> Q-values."""
                 
         x = self.cnn(world_state).squeeze(dim=2).squeeze(dim=2)
         x = self.fc1(x)
-        x = F.relu(x)
+        pov_descriptor = F.relu(x)
 
-        y = self.mh_inventory(agent_state)
+        x = torch.flatten(world_state, start_dim=1)
+        pov_flat = self.pov_flat(x)
+
+
+        mh_descriptor = self.mh(agent_mh_state)
+        inventory_descriptor = self.inventory(agent_inventory_state)
            
         actions = []
         for i, a in enumerate(self.action_modules):
@@ -431,18 +546,30 @@ class Critic(nn.Module):
         z = self.combined_actions(actions_embedded_combined)
 
 
-        c = torch.cat([x,y,z], 1)
-        c = self.combined(c)
+        combined_state = torch.cat([pov_descriptor, mh_descriptor, inventory_descriptor, z, pov_flat], 1)
+        q_value = self.combined(combined_state)
  
-        # curiosity reward
-        if self.previous_agent_state is None:
-            self.previous_agent_state = torch.zeros_like(agent_state)
+        n_wsd_predict = self.next_state_predict_cnn(combined_state)
 
-        states_concat = torch.cat((self.previous_agent_state, agent_state), dim=1)
-        a_state_change_reward = self.dist_net(states_concat)
-        self.previous_agent_state = agent_state
+        n_asmhd_predict = self.next_state_predict_agent_mh(combined_state)
 
-        return c, a_state_change_reward
+        n_asinventoryd_predict = self.next_state_predict_agent_inventory(combined_state)
 
 
+        return q_value, n_wsd_predict, n_asmhd_predict, n_asinventoryd_predict
+
+    def get_wsd(self, world_state):
+
+        x = self.cnn(world_state).squeeze(dim=2).squeeze(dim=2)
+        x = self.fc1(x)
+        wsd = F.relu(x)  # world state descriptor
+        return wsd
+
+    def get_asmhd(self, agent_state_mh):
+        asmhd = self.mh(agent_state_mh) # agent state descriptor
+        return asmhd
+
+    def get_asinventoryd(self, agent_state_inventory):
+        asinventoryd = self.inventory(agent_state_inventory) # agent state descriptor
+        return asinventoryd
 

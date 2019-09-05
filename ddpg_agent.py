@@ -18,12 +18,12 @@ import torch.optim as optim
 import torchvision.transforms as transforms
 
 
-BUFFER_SIZE = int(1e5)  # replay buffer size
+BUFFER_SIZE = int(5e4)  # replay buffer size
 BATCH_SIZE = 16         # minibatch size
-GAMMA = 0.9            # discount factor
+GAMMA = 1.0            # discount factor
 TAU = 1e-2              # for soft update of target parameters
 LR_ACTOR = 1e-5         # learning rate of the actor 
-LR_CRITIC = 1e-6        # learning rate of the critic
+LR_CRITIC = 1e-4        # learning rate of the critic
 WEIGHT_DECAY = 0.000   # L2 weight decay
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -61,12 +61,12 @@ class Agent():
         
         
         # Critic Network (w/ Target Network)
-        self.critic_local = Critic(self.agent_mh_size+self.agent_inventory_size, self.world_state_size, self.action_size, self.seed).to(device)
-        self.critic_target = Critic(self.agent_mh_size+self.agent_inventory_size, self.world_state_size, self.action_size, self.seed).to(device)
+        self.critic_local = Critic(self.agent_mh_size, self.agent_inventory_size, self.world_state_size, self.action_size, self.seed).to(device)
+        self.critic_target = Critic(self.agent_mh_size, self.agent_inventory_size, self.world_state_size, self.action_size, self.seed).to(device)
 
-        #params = list(self.critic_local.parameters()) + list(self.dist_net.parameters())
-        self.critic_optimizer = optim.Adam(self.critic_local.parameters(), lr=LR_CRITIC, weight_decay=WEIGHT_DECAY)
-        #self.critic_optimizer = optim.Adam(params, lr=LR_CRITIC)
+        params = list(self.critic_local.parameters()) + list(self.actor_local.parameters())
+        #self.critic_optimizer = optim.Adam(self.critic_local.parameters(), lr=LR_CRITIC, weight_decay=WEIGHT_DECAY)
+        self.critic_optimizer = optim.Adam(params, lr=LR_CRITIC)
         self.critic_scheduler = optim.lr_scheduler.StepLR(self.critic_optimizer, step_size=200, gamma=0.99)
         
         self.hard_copy_weights(self.actor_target, self.actor_local)
@@ -164,7 +164,7 @@ class Agent():
         #self.critic_scheduler.step()
 
 
-    def learn_from_players(self, experiences, mh_ts, invent_ts):
+    def learn_from_players(self, experiences, mh_ts, invent_ts, loss_list):
         """Save experience in replay memory, and use random sample from buffer to learn."""
         
         #print(experiences)
@@ -174,21 +174,23 @@ class Agent():
         # Learn, if enough samples are available in memory
         self.iter = self.iter+1
         self.iter = self.iter%1
+
         if len(self.memory) > BATCH_SIZE:
             
             experiences = self.memory.sample() 
             #(states, states_2, actions, rewards, next_states, next_states_2, dones) = experiences           
-            self.learn_2(experiences, GAMMA)
+            loss_1, loss_2 = self.learn_3(experiences, GAMMA)
+            loss_list.append((loss_1, loss_2))
             
             experiences = self.memory.sample()
-            self.learn_2(experiences, GAMMA)
+            loss_1, loss_2 = self.learn_3(experiences, GAMMA)
+            loss_list.append((loss_1, loss_2))
 
         #self.actor_scheduler.step()
         #self.critic_scheduler.step()
 
-        
-        
-    def act(self, mainhand, inventory, pov, add_noise=True, noise_scale=1.0):
+    
+    def act(self, mainhand, inventory, pov,  add_noise=True, noise_scale=1.0):
         """Returns actions for given state as per current policy."""
 
         agent_state_mainhand, agent_state_inventory, world_state = self.get_states(mainhand, inventory, pov)        
@@ -201,7 +203,7 @@ class Agent():
         
         self.actor_local.eval()
         with torch.no_grad():
-            action, action_raw, _ , _ , _ = self.actor_local(s1,s2,s3)
+            action, action_raw ,_,  _ ,  _ , _ , _ = self.actor_local(s1,s2,s3)
             
         self.actor_local.train()
         
@@ -209,153 +211,6 @@ class Agent():
 
     def reset(self):
         self.noise.reset()
-
-    def learn(self, experiences, gamma):
-        """Update policy and value parameters using given batch of experience tuples.
-        Q_targets = r + γ * critic_target(next_state, actor_target(next_state))
-        where:
-            actor_target(state) -> action
-            critic_target(state, action) -> Q-value
-
-        Params
-        ======
-            experiences (Tuple[torch.Tensor]): tuple of (s, a, r, s', done) tuples 
-            gamma (float): discount factor
-        """
-        ( a_states_mh, a_state_invent, w_states_, actions, rewards, a_next_states_mh, a_next_state_invent, w_next_states_, dones ) = experiences
-                
-        a_states_mh = a_states_mh.to(device)
-        a_states_invent = a_states_invent.to(device)
-        w_states = w_states_.to(device) 
-
-        a_next_states_mh = a_next_states_mh.to(device)
-        a_next_states_invent = a_next_states_invent.to(device)
-        w_next_states = w_next_states_.to(device) 
-
-        
-
-        # ---------------------------- update critic ---------------------------- #
-        # Get predicted next-state actions and Q values from target models
-        actions_next, actions_next_raw = self.actor_target(a_next_states_mh, w_next_states, a_next_states_invent)
-        #print(actions_next_raw)        
-        a_next_states = torch.cat(a_next_states_mh, a_next_states_invent)
-        Q_targets_next, _ = self.critic_target(a_next_states, w_next_states, actions_next_raw)
-        
-
-        # Compute Q targets for current states (y_i)
-        a_states = torch.cat(a_states_mh, a_states_invent)
-        Q_expected, Q_state_change_reward = self.critic_local(a_states, w_states, actions)
-        Q_targets = rewards + (gamma * Q_targets_next * (1 - dones))
-        #print("{} {} \r".format(Q_targets_next, Q_expected))
-        #print("{} {}. \r".format(Q_expected.mean().item(), Q_targets.mean().item()))
-        
-        # Compute critic loss
-        #print(a_state_change.shape)
-        #print(Q_expected.shape)
-        #print(Q_targets.shape)
-        critic_loss = F.mse_loss(Q_expected, Q_targets)   
-                
-        # Minimize the loss
-        self.critic_optimizer.zero_grad()
-        critic_loss.backward()
-        #torch.nn.utils.clip_grad_norm_(self.critic_local.parameters(), 1)
-        self.critic_optimizer.step()
-
-        # ---------------------------- update actor ---------------------------- #
-        # Compute actor loss
-        actions_pred, actions_pred_raw = self.actor_local(a_states_mh, w_states, a_states_invent)
-        actor_loss, state_change_reward = self.critic_local(a_states, w_states, actions_pred_raw)
-        actor_loss = -actor_loss.mean()
-
-        print("{} {} {} \r".format(critic_loss.item(), actor_loss.item(), state_change_reward.mean()))
-        
-        # Minimize the loss
-        self.actor_optimizer.zero_grad()
-        actor_loss.backward()
-        #torch.nn.utils.clip_grad_norm_(self.actor_local.parameters(), 1)
-        self.actor_optimizer.step()
-
-        # ----------------------- update target networks ----------------------- #
-        self.soft_update(self.critic_local, self.critic_target, TAU)
-        self.soft_update(self.actor_local, self.actor_target, TAU)     
-
-    def learn_2(self, experiences, gamma):
-        """Update policy and value parameters using given batch of experience tuples.
-        Q_targets = r + γ * critic_target(next_state, actor_target(next_state))
-        where:
-            actor_target(state) -> action
-            critic_target(state, action) -> Q-value
-
-        Params
-        ======
-            experiences (Tuple[torch.Tensor]): tuple of (s, a, r, s', done) tuples 
-            gamma (float): discount factor
-        """
-        #states, actions, rewards, next_states, dones, indices, weights = experiences
-        ( a_states_mh, a_states_invent, w_states_, actions, rewards, a_next_states_mh, a_next_states_invent, w_next_states_, dones ) = experiences
-                
-        a_states_mh = a_states_mh.to(device)
-        a_states_invent = a_states_invent.to(device)
-        w_states = w_states_.to(device) 
-
-        a_next_states_mh = a_next_states_mh.to(device) 
-        a_next_state_invent = a_next_states_invent.to(device)
-        w_next_states = w_next_states_.to(device) 
-
-        
-
-        # ---------------------------- update critic ---------------------------- #
-        # Get predicted next-state actions and Q values from target models
-        actions_next, actions_next_raw, _, _ , _ = self.actor_target(a_next_states_mh, w_next_states, a_next_states_invent)
-        #print(actions_next_raw)        
-        a_next_states = torch.cat((a_next_states_mh, a_next_states_invent), dim=1)
-        Q_targets_next, _ = self.critic_target(a_next_states, w_next_states, actions_next_raw)
-        
-
-        # Compute Q targets for current states (y_i)
-        a_states = torch.cat((a_states_mh, a_states_invent), dim=1)
-        Q_expected, Q_state_change_reward = self.critic_local(a_states, w_states, actions)
-        Q_targets = rewards + (gamma * Q_targets_next * (1 - dones))
-        #print("{} {} \r".format(Q_targets_next, Q_expected))
-        #print("{} {}. \r".format(Q_expected.mean().item(), Q_targets.mean().item()))
-        
-        # Compute critic loss
-        #print(a_state_change.shape)
-        #print(Q_expected.shape)
-        #print(Q_targets.shape)
-        critic_loss = F.mse_loss(Q_expected, Q_targets)   
-                
-        # Minimize the loss
-        self.critic_optimizer.zero_grad()
-        critic_loss.backward()
-        #torch.nn.utils.clip_grad_norm_(self.critic_local.parameters(), 1)
-        self.critic_optimizer.step()
-
-        # ---------------------------- update actor ---------------------------- #
-        # Compute actor loss
-        actions_pred, actions_pred_raw, n_wsd_predict, n_asmhd_predict, n_asinventd_predict = self.actor_local(a_states_mh, w_states, a_states_invent)
-
-        #get next state descriptors
-        n_wsd = self.actor_local.get_wsd(w_next_states)
-        n_asmhd = self.actor_local.get_asmhd(a_next_states_mh)
-        n_asinventd = self.actor_local.get_asinventoryd(a_next_states_invent)
-
-
-        actor_loss = torch.abs(n_wsd-n_wsd_predict)+torch.abs(n_asmhd-n_asmhd_predict)+torch.abs(n_asinventd-n_asinventd_predict)
-        actor_loss = (actor_loss-rewards).sum()
- 
-
-        print("{} {} \r".format(critic_loss.item(), actor_loss.item()))
-        
-        # Minimize the loss
-        self.actor_optimizer.zero_grad()
-        actor_loss.backward()
-        #torch.nn.utils.clip_grad_norm_(self.actor_local.parameters(), 1)
-        self.actor_optimizer.step()
-
-        # ----------------------- update target networks ----------------------- #
-        self.soft_update(self.critic_local, self.critic_target, TAU)
-        self.soft_update(self.actor_local, self.actor_target, TAU)                        
 
     def soft_update(self, local_model, target_model, tau):
         """Soft update model parameters.
@@ -369,6 +224,172 @@ class Agent():
         """
         for target_param, local_param in zip(target_model.parameters(), local_model.parameters()):
             target_param.data.copy_(tau*local_param.data + (1.0-tau)*target_param.data)
+
+    def get_action_loss(self, gt, onehot_probs, mh_state_loss, inventory_state_loss, world_state_loss, q_value_loss=None):
+
+        attack_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,0], gt[:,0])
+        back_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,1], gt[:,1])
+        camera_loss = F.mse_loss(onehot_probs[:,2:4], gt[:,2:4])
+        craft_loss = F.cross_entropy(onehot_probs[:,4:9], gt[:,4].long())
+        equip_loss = F.cross_entropy(onehot_probs[:,9:17], gt[:,5].long())
+        forward_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,17], gt[:,6])
+        jump_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,18], gt[:,7])
+        left_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,19], gt[:,8])
+        nearby_craft_loss = F.cross_entropy(onehot_probs[:,20:28], gt[:,9].long())
+        nearby_smelt_loss = F.cross_entropy(onehot_probs[:,28:31], gt[:,10].long())
+        place_loss = F.cross_entropy(onehot_probs[:,31:38], gt[:,11].long())
+        right_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,38], gt[:,12])
+        sneak_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,39], gt[:,13])
+        sprint_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,40], gt[:,14])
+        
+
+        self.actor_optimizer.zero_grad()
+        self.critic_optimizer.zero_grad()
+
+        if q_value_loss != None:
+            torch.autograd.backward([attack_loss,back_loss,camera_loss,craft_loss,equip_loss,\
+                    forward_loss,jump_loss,left_loss,nearby_craft_loss,nearby_smelt_loss,place_loss, \
+                    right_loss,sneak_loss,sprint_loss,mh_state_loss,inventory_state_loss, \
+                    world_state_loss, q_value_loss])
+        else:
+            torch.autograd.backward([attack_loss,back_loss,camera_loss,craft_loss,equip_loss,\
+                    forward_loss,jump_loss,left_loss,nearby_craft_loss,nearby_smelt_loss,place_loss, \
+                    right_loss,sneak_loss,sprint_loss,mh_state_loss,inventory_state_loss, \
+                    world_state_loss])
+
+
+        torch.nn.utils.clip_grad_norm_(self.actor_local.parameters(), 1)
+        torch.nn.utils.clip_grad_norm_(self.critic_local.parameters(), 1)
+        
+        self.actor_optimizer.step()
+        self.critic_optimizer.step()
+        
+        #print(attack_loss)
+        #print(back_loss)
+        #print(camera_loss.item())
+        #print(craft_loss)
+        #print(equip_loss)
+        #print(forward_loss)
+        #print(jump_loss)
+        #print(left_loss)
+        #print(nearby_craft_loss)
+        #print(nearby_smelt_loss)
+        #print(place_loss)
+        #print(right_loss)
+        #print(sneak_loss)
+        #print(sprint_loss)
+
+        return camera_loss, q_value_loss
+
+
+    def learn_1(self, experiences, gamma):
+
+        ( a_states_mh, a_states_invent, w_states, actions, rewards, a_next_states_mh, a_next_states_invent, w_next_states, dones ) = experiences
+
+        a_states_mh = a_states_mh.to(device)
+        a_states_invent = a_states_invent.to(device)
+        w_states = w_states.to(device)
+
+        a_next_states_mh = a_next_states_mh.to(device)
+        a_next_state_invent = a_next_states_invent.to(device)
+        w_next_states = w_next_states.to(device)
+
+
+        # predict next actions and next next state with actor
+        with torch.no_grad():
+            _ , _ , _ , Q_next , _ , _ , _ = self.actor_local(a_next_states_mh, w_next_states, a_next_states_invent)
+            Q_current_2 = rewards + (gamma * Q_next * (1 - dones))
+
+
+        #get next state (from experiences) descriptors
+        with torch.no_grad():
+            n_wsd = self.actor_local.get_wsd(w_next_states)
+            n_asmhd = self.actor_local.get_asmhd(a_next_states_mh)
+            n_asinventd = self.actor_local.get_asinventoryd(a_next_states_invent)
+
+        # predict actions and next state with actor
+        actions_pred, actions_pred_raw, action_logits, Q_current, n_wsd_predict, n_asmhd_predict, n_asinventd_predict = \
+                self.actor_local(a_states_mh, w_states, a_states_invent)
+
+
+        # calculate loss for actor
+        loss_1, loss_2 = self.get_action_loss(actions, action_logits, \
+                F.mse_loss(n_asmhd, n_asmhd_predict), F.mse_loss(n_asinventd, n_asinventd_predict), \
+                F.mse_loss(n_wsd, n_wsd_predict), F.mse_loss(Q_current, Q_current_2.detach()))
+
+        print("Actor Losses:{} {}".format(loss_1.item(), loss_2.item()))
+        return loss_1, loss_2
+
+
+
+    def learn_3(self, experiences, gamma):
+        
+        #states, actions, rewards, next_states, dones, indices, weights = experiences
+        ( a_states_mh, a_states_invent, w_states, actions, rewards, a_next_states_mh, a_next_states_invent, w_next_states, dones ) = experiences
+
+        a_states_mh = a_states_mh.to(device)
+        a_states_invent = a_states_invent.to(device)
+        w_states = w_states.to(device)
+
+        a_next_states_mh = a_next_states_mh.to(device)
+        a_next_state_invent = a_next_states_invent.to(device)
+        w_next_states = w_next_states.to(device)
+
+
+        # predict actions 
+        
+        _ , actions_pred_raw, action_logits, _ , _ , _ , _ = \
+                self.actor_local(a_states_mh, w_states, a_states_invent)
+
+        #get next state (from experiences) descriptors
+        with torch.no_grad():
+            n_wsd = self.critic_local.get_wsd(w_next_states)
+            n_asmhd = self.critic_local.get_asmhd(a_next_states_mh)
+            n_asinventd = self.critic_local.get_asinventoryd(a_next_states_invent)
+
+
+        # Compute Q value of current state (from experiences)
+        Q_current, n_wsd_predict, n_asmhd_predict, n_asinventd_predict = self.critic_local(a_states_mh, a_states_invent, w_states, actions)
+        
+        # calculate loss for actor/critic
+        loss_1, _ = self.get_action_loss(actions, action_logits, \
+                F.mse_loss(n_asmhd, n_asmhd_predict), F.mse_loss(n_asinventd, n_asinventd_predict), \
+                F.mse_loss(n_wsd, n_wsd_predict))
+
+        
+
+
+        # Compute Q value of next state (next state from experiences and the rest is predicted with actor and critic
+
+        # predict action in the next state
+        actions_next, actions_next_raw, action_logits, _ , _ , _ , _ = self.actor_local(a_next_states_mh, w_next_states, a_next_states_invent)
+        # predict Q value in the next state
+        Q_next, _ , _ , _ = self.critic_local(a_next_states_mh, a_next_states_invent, w_next_states, actions_next_raw)
+        
+        
+        # Alternative Q value through Bellman equations
+        Q_current_2 = rewards + (gamma * Q_next * (1 - dones))
+
+
+        # Compute critic loss
+        critic_loss = F.mse_loss(Q_current.detach(), Q_current_2)
+
+        # Minimize the loss
+        self.critic_optimizer.zero_grad()
+        critic_loss.backward()
+        torch.nn.utils.clip_grad_norm_(self.critic_local.parameters(), 1)
+        torch.nn.utils.clip_grad_norm_(self.actor_local.parameters(), 1)
+        self.critic_optimizer.step()
+
+
+        # ----------------------- update target networks ----------------------- #
+        self.soft_update(self.critic_local, self.critic_target, TAU)
+        self.soft_update(self.actor_local, self.actor_target, TAU)
+
+        print("Actor Losses:{} {}".format(loss_1.item(), critic_loss.item()))
+
+        return loss_1, critic_loss
+
 
 class OUNoise:
     """Ornstein-Uhlenbeck process."""
@@ -456,9 +477,10 @@ class NaivePrioritizedBuffer(object):
         next_state_invent = np.expand_dims(next_state_invent, 0)
                 
         if len(self.memory) < self.capacity:
+            print("event memory capacity below:")
             self.memory.append((state_mh, state_invent, state_2, action, reward, next_state_mh, next_state_invent, next_state_2, done))
         else:
-            self.memory[self.pos] = (state_mh, state_invent, state_2, action, reward, next_state_mh, next_state_invent, next_state_2, done)
+            self.memory[self.pos] = (state_mh, state_invent, state_2,  action, reward, next_state_mh, next_state_invent, next_state_2, done)
         
         self.priorities[self.pos] = reward+0.1
         self.pos = (self.pos + 1) % self.capacity
@@ -487,7 +509,6 @@ class NaivePrioritizedBuffer(object):
         next_states_invent = torch.from_numpy(np.vstack([self.memory[idx][6] for idx in indices if indices is not None])).float().to(device)
         next_states_2 = torch.from_numpy(np.stack([self.memory[idx][7] for idx in indices if indices is not None])).float().to(device)
         dones = torch.from_numpy(np.vstack([self.memory[idx][8] for idx in indices if indices is not None]).astype(np.uint8)).float().to(device)
-    
         
         experiences = (states_mh, states_invent, states_2, actions, rewards, next_states_mh, next_states_invent, next_states_2, dones)
         return experiences

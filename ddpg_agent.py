@@ -172,21 +172,18 @@ class Agent():
         self.memory.add(e[0], e[1], e[2], e[3], e[4], e[5], e[6], e[7], e[8])
 
         # Learn, if enough samples are available in memory
-        self.iter = self.iter+1
 
         if len(self.memory) > BATCH_SIZE:
             
             experiences = self.memory.sample() 
-            #(states, states_2, actions, rewards, next_states, next_states_2, dones) = experiences           
-            loss_1, loss_2 = self.learn_2(experiences, GAMMA)
-            writer.add_scalar('loss 1', loss_1)
-            writer.add_scalar('loss 2', loss_2)
+            #(states, states_2, actions, rewards, next_states, next_states_2, dones) = experiences      
+            self.iter = self.iter+1     
+            loss_1, loss_2 = self.learn_2(experiences, GAMMA, writer)
             loss_list.append((loss_1, loss_2))
             
+            self.iter = self.iter+1
             experiences = self.memory.sample()
-            loss_1, loss_2 = self.learn_2(experiences, GAMMA)
-            writer.add_scalar('loss 1', loss_1)
-            writer.add_scalar('loss 2', loss_2)
+            loss_1, loss_2 = self.learn_2(experiences, GAMMA, writer)
             loss_list.append((loss_1, loss_2))
 
         #self.actor_scheduler.step()
@@ -228,13 +225,14 @@ class Agent():
         for target_param, local_param in zip(target_model.parameters(), local_model.parameters()):
             target_param.data.copy_(tau*local_param.data + (1.0-tau)*target_param.data)
 
-    def get_action_loss(self, gt, onehot_probs, mh_state_loss, inventory_state_loss, \
+    def get_action_loss(self, writer, gt, onehot_probs, mh_state_loss, inventory_state_loss, \
         world_state_loss, q_diff_loss=None, q_value_loss=None):
 
         q_value_loss = q_value_loss.detach()/14
         attack_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,0], gt[:,0])+q_value_loss
         back_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,1], gt[:,1])+q_value_loss
-        camera_loss = F.mse_loss(onehot_probs[:,2:4], gt[:,2:4])+q_value_loss
+        pitch_loss = F.mse_loss(onehot_probs[:,2], gt[:,2])+q_value_loss
+        yaw_loss = F.mse_loss(onehot_probs[:,3], gt[:,3])+q_value_loss
         craft_loss = F.cross_entropy(onehot_probs[:,4:9], gt[:,4].long())+q_value_loss
         equip_loss = F.cross_entropy(onehot_probs[:,9:17], gt[:,5].long())+q_value_loss
         forward_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,17], gt[:,6])+q_value_loss
@@ -248,16 +246,30 @@ class Agent():
         sprint_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,40], gt[:,14])+q_value_loss
         
 
+        writer.add_scalars('Losses', {"attack":attack_loss, "back":back_loss, \
+            "craft":craft_loss, "equip":equip_loss, "forward":forward_loss, \
+            "jump":jump_loss, "left":left_loss, "nearbyCraft":nearby_craft_loss, \
+            "nearbySmelt":nearby_smelt_loss, "place":place_loss, "right":right_loss, \
+            "sneak":sneak_loss, "sprint":sprint_loss}, global_step=self.iter)
+
+        writer.add_scalars('Camera Losses', {"pitch":pitch_loss, "yaw":yaw_loss}, global_step=self.iter)
+
+        writer.add_scalars('State Prediction Losses', {"MainHand":mh_state_loss, "Inventory":inventory_state_loss, "World":world_state_loss}, global_step=self.iter)
+
+
         self.actor_optimizer.zero_grad()
         self.critic_optimizer.zero_grad()
 
         if q_value_loss is None and q_diff_loss is None:
-            torch.autograd.backward([attack_loss,back_loss,camera_loss,craft_loss,equip_loss,\
+            torch.autograd.backward([attack_loss,back_loss,pitch_loss,yaw_loss,craft_loss,equip_loss,\
                     forward_loss,jump_loss,left_loss,nearby_craft_loss,nearby_smelt_loss,place_loss, \
                     right_loss,sneak_loss,sprint_loss,mh_state_loss,inventory_state_loss, \
                     world_state_loss])
         else:
-            torch.autograd.backward([attack_loss,back_loss,camera_loss,craft_loss,equip_loss,\
+
+            writer.add_scalars('Q Values', {"Q Value":q_value_loss, "Q Difference":q_diff_loss}, global_step=self.iter)
+
+            torch.autograd.backward([attack_loss,back_loss,pitch_loss,yaw_loss,craft_loss,equip_loss,\
                     forward_loss,jump_loss,left_loss,nearby_craft_loss,nearby_smelt_loss,place_loss, \
                     right_loss,sneak_loss,sprint_loss,mh_state_loss,inventory_state_loss, \
                     world_state_loss, q_diff_loss])
@@ -284,7 +296,7 @@ class Agent():
         #print(sneak_loss)
         #print(sprint_loss)
 
-        return camera_loss, q_value_loss
+        return pitch_loss, yaw_loss
 
 
     def learn_1(self, experiences, gamma):
@@ -326,7 +338,7 @@ class Agent():
         return loss_1, loss_2
 
 
-    def learn_2(self, experiences, gamma):
+    def learn_2(self, experiences, gamma, writer):
         
         #states, actions, rewards, next_states, dones, indices, weights = experiences
         ( a_states_mh, a_states_invent, w_states, actions, rewards, a_next_states_mh, a_next_states_invent, w_next_states, dones ) = experiences
@@ -358,7 +370,7 @@ class Agent():
                 self.actor_local(a_states_mh, w_states, a_states_invent)
 
         # calculate loss for actor
-        loss_1, loss_2 = self.get_action_loss(actions, action_logits, \
+        loss_1, loss_2 = self.get_action_loss(writer, actions, action_logits, \
                 F.mse_loss(mhd_next, n_asmhd_predict), F.mse_loss(inventd_next, n_asinventd_predict), \
                 F.mse_loss(wsd_next, n_wsd_predict), F.mse_loss(Q_current, Q_current_2), -Q_current.mean())
 

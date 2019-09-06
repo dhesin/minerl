@@ -80,7 +80,8 @@ class Actor(nn.Module):
         self.action_modules = nn.ModuleDict({
             'attack': nn.Linear(40,1, bias=False),
             'back': nn.Linear(40,1, bias=False),
-            'camera': nn.Linear(40,2, bias=False),
+            'camera_pitch': nn.Linear(40,1, bias=False),
+            'camera_yaw': nn.Linear(40,1, bias=False),
             'craft': nn.Linear(40,5, bias=False),
             'equip': nn.Linear(40,8, bias=False),
             'forward_': nn.Linear(40,1, bias=False),
@@ -97,7 +98,8 @@ class Actor(nn.Module):
         self.activation_modules = nn.ModuleDict({
             'attack': nn.Identity(),
             'back': nn.Identity(),
-            'camera': nn.Tanhshrink(),
+            'camera_pitch': nn.Tanhshrink(),
+            'camera_yaw': nn.Tanhshrink(),
             'craft': nn.Identity(),
             'equip': nn.Identity(),
             'forward_': nn.Identity(),
@@ -235,6 +237,7 @@ class Actor(nn.Module):
         actions = {}
         actions_raw = []
         action_logits = []
+
         
         for action in self.action_modules:
             
@@ -248,13 +251,13 @@ class Actor(nn.Module):
                 action_logits.append(out)
                 out = F.softmax(out, dim=1)
                 out = out.argmax(dim=1, keepdim=True).float()
-            elif action != "camera":
+            elif action != "camera_pitch" and action != "camera_yaw":
                 action_logits.append(out)
                 out = torch.sigmoid(out)
                 zeros = torch.zeros_like(out)
                 ones = torch.ones_like(out)
                 out = torch.where(out > 0.5, ones, zeros).squeeze(dim=0).float()
-            elif action == "camera":
+            elif action == "camera_pitch" or action == "camera_yaw":
                 out = torch.clamp(out, min=-180, max=180)
                 out = out.float()
                 #out[0][0] = out[0][0]/100.0
@@ -273,11 +276,14 @@ class Actor(nn.Module):
                 actions[action] = out[0].int().item()
             #elif action == "forward":
             #    actions[action] = 1                               
-            elif action != "camera":
+            elif action != "camera_pitch" and action != "camera_yaw":
                 actions[action] = out[0].int().item()
-            elif action == "camera":
-                actions[action] = out[0].tolist()
+            elif action == "camera_pitch":
+                pitch = out[0].float().item() 
+            elif action == "camera_yaw":
+                yaw = out[0].float().item()
 
+        actions["camera"] = (pitch, yaw)
                    
         actions_raw = torch.cat(actions_raw, dim=1)
         self.actions_raw = actions_raw.detach()

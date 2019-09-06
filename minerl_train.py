@@ -254,9 +254,10 @@ writer = SummaryWriter()
     
 data = minerl.data.make(
     'MineRLObtainDiamondDense-v0',
-    data_dir="/home/darici/minerl/minerl/data")
+    data_dir="/home/desin/minerl/data")
 
 agent = Agent(agent_mh_size=3, agent_inventory_size = 18, world_state_size=(64, 64, 3), action_size=14, random_seed=0)
+
 
 action_counts = np.zeros((action_s-1, 10), dtype=int)
 action_names = ("attack", "back", "craft", "equip",
@@ -315,7 +316,7 @@ for current_state, action, reward, next_state, done in data.sarsd_iter(num_epoch
             # collect camera pitch/yaw values produces
             camera_list.append(action_1_raw[0][2:4].cpu().numpy())
 
-            writer.add_scalars('pitch/yaw', {'picth':action_1_raw[0][2], 'yaw':action_1_raw[0][3]})
+            writer.add_scalars('Camera', {'picth':action_1_raw[0][2], 'yaw':action_1_raw[0][3]}, global_step=eps_i)
 
             # count actions other than camera
             actions_only = np.concatenate(((action_1_raw[0])[0:2].cpu().int(), (action_1_raw[0])[4:].cpu().int()))
@@ -329,7 +330,7 @@ for current_state, action, reward, next_state, done in data.sarsd_iter(num_epoch
                 "craft":action_1_raw[0][0], "equip":action_1_raw[0][4], "forward":action_1_raw[0][5], \
                 "jump":action_1_raw[0][6], "left":action_1_raw[0][7], "nearbyCraft":action_1_raw[0][8], \
                 "nearbySmelt":action_1_raw[0][9], "place":action_1_raw[0][10], "right":action_1_raw[0][11], \
-                "sneak":action_1_raw[0][12], "sprint":action_1_raw[0][13]})
+                "sneak":action_1_raw[0][12], "sprint":action_1_raw[0][13]}, global_step=eps_i)
 
             if (eps_i%100==0):
 

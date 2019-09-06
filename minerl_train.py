@@ -254,7 +254,7 @@ writer = SummaryWriter()
     
 data = minerl.data.make(
     'MineRLObtainDiamondDense-v0',
-    data_dir="/home/desin/minerl/data")
+    data_dir="/home/darici/minerl/minerl/data")
 
 agent = Agent(agent_mh_size=3, agent_inventory_size = 18, world_state_size=(64, 64, 3), action_size=14, random_seed=0)
 

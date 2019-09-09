@@ -22,7 +22,7 @@ BUFFER_SIZE = int(5e4)  # replay buffer size
 BATCH_SIZE = 16         # minibatch size
 GAMMA = 1.0            # discount factor
 TAU = 1e-2              # for soft update of target parameters
-LR_ACTOR = 1e-5         # learning rate of the actor 
+LR_ACTOR = 1e-6         # learning rate of the actor 
 LR_CRITIC = 1e-4        # learning rate of the critic
 WEIGHT_DECAY = 0.000   # L2 weight decay
 
@@ -229,21 +229,21 @@ class Agent():
         world_state_loss, q_diff_loss=None, q_value_loss=None):
 
         q_value_loss = q_value_loss.detach()/14
-        attack_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,0], gt[:,0])+q_value_loss
-        back_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,1], gt[:,1])+q_value_loss
-        pitch_loss = F.mse_loss(onehot_probs[:,2], gt[:,2])+q_value_loss
-        yaw_loss = F.mse_loss(onehot_probs[:,3], gt[:,3])+q_value_loss
-        craft_loss = F.cross_entropy(onehot_probs[:,4:9], gt[:,4].long())+q_value_loss
-        equip_loss = F.cross_entropy(onehot_probs[:,9:17], gt[:,5].long())+q_value_loss
-        forward_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,17], gt[:,6])+q_value_loss
-        jump_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,18], gt[:,7])+q_value_loss
-        left_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,19], gt[:,8])+q_value_loss
-        nearby_craft_loss = F.cross_entropy(onehot_probs[:,20:28], gt[:,9].long())+q_value_loss
-        nearby_smelt_loss = F.cross_entropy(onehot_probs[:,28:31], gt[:,10].long())+q_value_loss
-        place_loss = F.cross_entropy(onehot_probs[:,31:38], gt[:,11].long())+q_value_loss
-        right_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,38], gt[:,12])+q_value_loss
-        sneak_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,39], gt[:,13])+q_value_loss
-        sprint_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,40], gt[:,14])+q_value_loss
+        attack_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,0], gt[:,0])
+        back_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,1], gt[:,1])
+        pitch_loss = F.mse_loss(onehot_probs[:,2], gt[:,2])
+        yaw_loss = F.mse_loss(onehot_probs[:,3], gt[:,3])
+        craft_loss = F.cross_entropy(onehot_probs[:,4:9], gt[:,4].long())
+        equip_loss = F.cross_entropy(onehot_probs[:,9:17], gt[:,5].long())
+        forward_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,17], gt[:,6])
+        jump_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,18], gt[:,7])
+        left_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,19], gt[:,8])
+        nearby_craft_loss = F.cross_entropy(onehot_probs[:,20:28], gt[:,9].long())
+        nearby_smelt_loss = F.cross_entropy(onehot_probs[:,28:31], gt[:,10].long())
+        place_loss = F.cross_entropy(onehot_probs[:,31:38], gt[:,11].long())
+        right_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,38], gt[:,12])
+        sneak_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,39], gt[:,13])
+        sprint_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,40], gt[:,14])
         
 
         writer.add_scalars('Losses', {"attack":attack_loss, "back":back_loss, \
@@ -271,9 +271,12 @@ class Agent():
 
             torch.autograd.backward([attack_loss,back_loss,pitch_loss,yaw_loss,craft_loss,equip_loss,\
                     forward_loss,jump_loss,left_loss,nearby_craft_loss,nearby_smelt_loss,place_loss, \
-                    right_loss,sneak_loss,sprint_loss,mh_state_loss,inventory_state_loss, \
-                    world_state_loss, q_diff_loss])
+                    right_loss,sneak_loss,sprint_loss, q_diff_loss])
 
+            # torch.autograd.backward([attack_loss,back_loss,pitch_loss,yaw_loss,craft_loss,equip_loss,\
+            #         forward_loss,jump_loss,left_loss,nearby_craft_loss,nearby_smelt_loss,place_loss, \
+            #         right_loss,sneak_loss,sprint_loss,mh_state_loss,inventory_state_loss, \
+            #         world_state_loss, q_diff_loss])
 
         torch.nn.utils.clip_grad_norm_(self.actor_local.parameters(), 1)
         torch.nn.utils.clip_grad_norm_(self.critic_local.parameters(), 1)

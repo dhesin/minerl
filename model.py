@@ -251,13 +251,13 @@ class Actor(nn.Module):
                 action_logits.append(out)
                 out = F.softmax(out, dim=1)
                 out = out.argmax(dim=1, keepdim=True).float()
-            elif action != "camera_pitch" and action != "camera_yaw":
+            elif (action != "camera_pitch" and action != "camera_yaw"):
                 action_logits.append(out)
                 out = torch.sigmoid(out)
                 zeros = torch.zeros_like(out)
                 ones = torch.ones_like(out)
                 out = torch.where(out > 0.5, ones, zeros).squeeze(dim=0).float()
-            elif action == "camera_pitch" or action == "camera_yaw":
+            elif (action == "camera_pitch" or action == "camera_yaw"):
                 out = torch.clamp(out, min=-180, max=180)
                 out = out.float()
                 #out[0][0] = out[0][0]/100.0
@@ -276,7 +276,7 @@ class Actor(nn.Module):
                 actions[action] = out[0].int().item()
             #elif action == "forward":
             #    actions[action] = 1                               
-            elif action != "camera_pitch" and action != "camera_yaw":
+            elif (action != "camera_pitch" and action != "camera_yaw"):
                 actions[action] = out[0].int().item()
             elif action == "camera_pitch":
                 pitch = out[0].float().item() 

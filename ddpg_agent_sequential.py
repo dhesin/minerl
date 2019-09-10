@@ -19,7 +19,7 @@ import torchvision.transforms as transforms
 
 
 BUFFER_SIZE = int(5e4)  # replay buffer size
-BATCH_SIZE = 2         # minibatch size
+BATCH_SIZE = 4         # minibatch size
 GAMMA = 1.0            # discount factor
 TAU = 1e-2              # for soft update of target parameters
 LR_ACTOR = 1e-5         # learning rate of the actor 
@@ -164,18 +164,14 @@ class Agent_TS():
         
         self.memory.add(experiences)
 
-        experiences = self.memory.sample() 
-        #(states, states_2, actions, rewards, next_states, next_states_2, dones) = experiences      
-        self.iter = self.iter+1     
-        loss_1, loss_2 = self.learn_2(experiences, GAMMA, writer)
-
         # Learn, if enough samples are available in memory
 
         if len(self.memory) > BATCH_SIZE:
             
-            experiences = self.memory.sample() 
+            
             #(states, states_2, actions, rewards, next_states, next_states_2, dones) = experiences      
-            self.iter = self.iter+1     
+            self.iter = self.iter+1    
+            experiences = self.memory.sample()  
             loss_1, loss_2 = self.learn_2(experiences, GAMMA, writer)
             
             self.iter = self.iter+1
@@ -191,6 +187,8 @@ class Agent_TS():
 
         agent_state_mainhand, agent_state_inventory, world_state = self.get_states(mainhand, inventory, pov)   
 
+        #pil_img = transforms.ToPILImage()(world_state)
+        #imshow(pil_img)
         
         s1 = torch.from_numpy(agent_state_mainhand).float().to(device)
         s3 = torch.from_numpy(agent_state_inventory).float().to(device)
@@ -225,21 +223,24 @@ class Agent_TS():
         world_state_loss, q_diff_loss=None, q_value_loss=None):
 
         q_value_loss = q_value_loss.detach()/14
-        attack_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,0], gt[:,0])+q_value_loss
-        back_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,1], gt[:,1])+q_value_loss
-        pitch_loss = F.mse_loss(onehot_probs[:,2], gt[:,2])+q_value_loss
-        yaw_loss = F.mse_loss(onehot_probs[:,3], gt[:,3])+q_value_loss
-        craft_loss = F.cross_entropy(onehot_probs[:,4:9], gt[:,4].long())+q_value_loss
-        equip_loss = F.cross_entropy(onehot_probs[:,9:17], gt[:,5].long())+q_value_loss
-        forward_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,17], gt[:,6])+q_value_loss
-        jump_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,18], gt[:,7])+q_value_loss
-        left_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,19], gt[:,8])+q_value_loss
-        nearby_craft_loss = F.cross_entropy(onehot_probs[:,20:28], gt[:,9].long())+q_value_loss
-        nearby_smelt_loss = F.cross_entropy(onehot_probs[:,28:31], gt[:,10].long())+q_value_loss
-        place_loss = F.cross_entropy(onehot_probs[:,31:38], gt[:,11].long())+q_value_loss
-        right_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,38], gt[:,12])+q_value_loss
-        sneak_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,39], gt[:,13])+q_value_loss
-        sprint_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,40], gt[:,14])+q_value_loss
+
+        #print("{} {}".format(onehot_probs[:,4:9], gt[:,4]))
+
+        attack_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,0], gt[:,0])
+        back_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,1], gt[:,1])
+        pitch_loss = F.mse_loss(onehot_probs[:,2], gt[:,2])
+        yaw_loss = F.mse_loss(onehot_probs[:,3], gt[:,3])
+        craft_loss = F.cross_entropy(onehot_probs[:,4:9], gt[:,4].long())
+        equip_loss = F.cross_entropy(onehot_probs[:,9:17], gt[:,5].long())
+        forward_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,17], gt[:,6])
+        jump_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,18], gt[:,7])
+        left_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,19], gt[:,8])
+        nearby_craft_loss = F.cross_entropy(onehot_probs[:,20:28], gt[:,9].long())
+        nearby_smelt_loss = F.cross_entropy(onehot_probs[:,28:31], gt[:,10].long())
+        place_loss = F.cross_entropy(onehot_probs[:,31:38], gt[:,11].long())
+        right_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,38], gt[:,12])
+        sneak_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,39], gt[:,13])
+        sprint_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,40], gt[:,14])
         
 
         writer.add_scalars('Losses', {"attack":attack_loss, "back":back_loss, \
@@ -302,6 +303,14 @@ class Agent_TS():
         #states, actions, rewards, next_states, dones, indices, weights = experiences
         #( a_states_mh, a_states_invent, w_states, actions, rewards, a_next_states_mh, a_next_states_invent, w_next_states, dones ) = experiences
 
+
+        [print(item[0].shape) for item in experiences]
+        [print(item[0]) for item in experiences]
+
+        #pil_img = transforms.ToPILImage()(experiences[0][2])
+        #imshow(pil_img)
+
+
         a_states_mh = torch.tensor([item[0] for item in experiences]).float()
         a_states_invent = torch.tensor([item[1] for item in experiences]).float()
         w_states = torch.tensor([item[2] for item in experiences]).float()
@@ -316,11 +325,13 @@ class Agent_TS():
         a_states_mh = a_states_mh.to(device)
         a_states_invent = a_states_invent.to(device)
         w_states = w_states.to(device)
+        actions = actions.to(device)
+        rewards = rewards.to(device)
 
         a_next_states_mh = a_next_states_mh.to(device)
-        a_next_state_invent = a_next_states_invent.to(device)
+        a_next_states_invent = a_next_states_invent.to(device)
         w_next_states = w_next_states.to(device)
-
+        dones = dones.to(device)
 
         #get next state (from experiences) descriptors and Q_next
         with torch.no_grad():
@@ -348,8 +359,6 @@ class Agent_TS():
 
         print("Actor Losses:{} {}".format(loss_1.item(), loss_2.item()))
         return loss_1, loss_2
-
-
 
 
 
@@ -391,6 +400,9 @@ class NaivePrioritizedBuffer(object):
         np.random.seed(seed)
     
     def add(self, experiences):
+
+        if len(experiences[0])<16:
+            return
    
         if len(self.memory) < self.capacity:
             print("event memory capacity below:")
@@ -403,7 +415,7 @@ class NaivePrioritizedBuffer(object):
     def sample(self, beta=0.4):
         
         #indices = np.random.choice(len(self.memory), self.batch_size, p=probs)
-        indices = np.random.choice(len(self.memory), self.batch_size)
+        indices = np.random.choice(len(self.memory), self.batch_size, False)
         #indices = np.random.randint(0, len(self.memory), self.batch_size)
 
         

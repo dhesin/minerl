@@ -39,13 +39,14 @@ class Actor_TS(nn.Module):
         self.cnn.add_module('norm3', nn.BatchNorm3d(growth_rate))
         self.cnn.add_module('relu3', nn.ReLU(inplace=True)) 
 
-        self.pov_lstm = torch.nn.LSTM(growth_rate, 20, num_layers=3, batch_first=True, bias=False)  
+        self.pov_lstm = torch.nn.LSTM(growth_rate, 20, num_layers=2, batch_first=True, bias=False)  
 
-        self.mh_lstm = torch.nn.LSTM(agent_mh_size, 20, num_layers=3, batch_first=True, bias=False)  
+        self.inventory_lstm = torch.nn.LSTM(agent_inventory_size, 20, num_layers=2, batch_first=True, bias=False)  
 
-        self.inventory_lstm = torch.nn.LSTM(agent_inventory_size, 20, num_layers=3, batch_first=True, bias=False)  
+        self.mh_lstm = torch.nn.LSTM(agent_mh_size, 20, num_layers=2, batch_first=True, bias=False)  
+
  
-        self.cnn_mh_inventory = torch.nn.LSTM(60, 40, num_layers=3, batch_first=True, bias=False)  
+        self.cnn_mh_inventory = torch.nn.LSTM(60, 40, num_layers=2, batch_first=True, bias=False)  
               
         
         self.action_modules = nn.ModuleDict({
@@ -66,20 +67,20 @@ class Actor_TS(nn.Module):
         })
  
         self.activation_modules = nn.ModuleDict({
-            'attack': nn.Tanh(),
-            'back': nn.Tanh(),
-            'camera': nn.Identity(),
-            'craft': nn.Tanh(),
-            'equip': nn.Tanh(),
-            'forward_': nn.Tanh(),
-            'jump': nn.Tanh(),
-            'left': nn.Tanh(),
-            'nearbyCraft': nn.Tanh(),
-            'nearbySmelt': nn.Tanh(),
-            'place': nn.Tanh(),
-            'right': nn.Tanh(),
-            'sneak': nn.Tanh(),
-            'sprint': nn.Tanh(),
+            'attack': nn.Identity(),
+            'back': nn.Identity(),
+            'camera': nn.Tanhshrink(),
+            'craft': nn.Identity(),
+            'equip': nn.Identity(),
+            'forward_': nn.Identity(),
+            'jump': nn.Identity(),
+            'left': nn.Identity(),
+            'nearbyCraft': nn.Identity(),
+            'nearbySmelt': nn.Identity(),
+            'place': nn.Identity(),
+            'right': nn.Identity(),
+            'sneak': nn.Identity(),
+            'sprint': nn.Identity(),
         })
 
         self.next_state_predict_cnn = nn.Sequential()
@@ -163,14 +164,14 @@ class Actor_TS(nn.Module):
         """Build an actor (policy) network that maps states -> actions."""
 
         x = self.cnn(world_state).squeeze(dim=3).squeeze(dim=3)
-        print(x.shape)
         x = x.permute(0,2,1)
         world_state, (hidden, cell) = self.pov_lstm(x)
 
+        agent_state_inventory, (hidden, cell) = self.inventory_lstm(agent_state_inventory)
 
         agent_state_mh, (hidden, cell) = self.mh_lstm(agent_state_mh)
 
-        agent_state_inventory, (hidden, cell) = self.inventory_lstm(agent_state_inventory)
+
         combined_state = torch.cat([world_state, agent_state_mh, agent_state_inventory], 2)
         combined_state, (hidden, cell) = self.cnn_mh_inventory(combined_state) 
 
@@ -183,21 +184,25 @@ class Actor_TS(nn.Module):
             
             out = self.action_modules[action](combined_state[:,-1,:])
             out = self.activation_modules[action](out)
-            action_logits.append(out)
+            
             
             if action == "forward_":
                 action = "forward"
             
             if action in ["craft", "equip","nearbyCraft","nearbySmelt","place"]:
+                action_logits.append(out)
                 out = F.softmax(out, dim=1)
                 out = out.argmax(dim=1, keepdim=True).float()
             elif action != "camera":
+                action_logits.append(out)
+                out = torch.sigmoid(out)
                 zeros = torch.zeros_like(out)
                 ones = torch.ones_like(out)
-                out = torch.where(out > 0., ones, zeros).squeeze(dim=0).float()
+                out = torch.where(out > 0.5, ones, zeros).squeeze(dim=0).float()
             elif action == "camera":
                 out = torch.clamp(out, min=-180, max=180)
                 out = out.float()
+                action_logits.append(out)
                                 
                 
             # raw action tensor for processing    

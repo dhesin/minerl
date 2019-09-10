@@ -239,10 +239,10 @@ env = gym.make("MineRLObtainDiamondDense-v0")
 env.seed(1255)
 obs_a = env.reset()
 
-action_a = deque(maxlen=32)
-mainhand_a = deque(maxlen=32)
-inventory_a = deque(maxlen=32)
-pov_a = deque(maxlen=32)
+action_a = deque(maxlen=16)
+mainhand_a = deque(maxlen=16)
+inventory_a = deque(maxlen=16)
+pov_a = deque(maxlen=16)
 
 
 action_a.append(env.action_space.sample())
@@ -260,7 +260,7 @@ writer = SummaryWriter()
 
 data = minerl.data.make(
     'MineRLObtainDiamondDense-v0',
-    data_dir="/home/desin/minerl/data")
+    data_dir="/home/darici/minerl/minerl/data")
 
 agent = Agent_TS(agent_mh_size = 3, agent_inventory_size = 18, world_state_size = [3, 32, 64, 64], action_size=14, random_seed=0)
 
@@ -293,7 +293,7 @@ pyplot.ylim(0,10)
 eps_i=0
 done_1=False
 active_reward=0
-for current_state, action, reward, next_state, done in data.sarsd_iter(num_epochs=10, max_sequence_len=32, seed=0):
+for current_state, action, reward, next_state, done in data.sarsd_iter(num_epochs=10, max_sequence_len=16, seed=0):
 
 
         #print(action['camera'])

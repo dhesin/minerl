@@ -4,6 +4,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from collections import OrderedDict
+import torchvision.transforms as transforms
+from matplotlib.pyplot import imshow
+import matplotlib.pyplot as pyplot
 
 def hidden_init(layer):
     fan_in = layer.weight.data.size()[0]
@@ -162,6 +165,11 @@ class Actor_TS(nn.Module):
                                                     
     def forward(self, agent_state_mh, world_state, agent_state_inventory):
         """Build an actor (policy) network that maps states -> actions."""
+
+        #print(world_state[0,:,0,:,:].shape)
+        pil_img = transforms.ToPILImage()(world_state[0,:,0,:,:])
+        imshow(pil_img)
+        pyplot.show()
 
         x = self.cnn(world_state).squeeze(dim=3).squeeze(dim=3)
         x = x.permute(0,2,1)

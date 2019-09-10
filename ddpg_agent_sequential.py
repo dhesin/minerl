@@ -107,7 +107,7 @@ class Agent_TS():
 
         mainhand = np.vstack(mainhand)
         inventory = np.vstack(inventory)
-        pov = np.vstack(np.expand_dims(pov, axis=0))
+        
 
         agent_state_mainhand = []
         for i in range(len(mainhand)):
@@ -123,13 +123,20 @@ class Agent_TS():
                 inventory[i,0]['stone_pickaxe'], inventory[i,0]['torch'], inventory[i,0]['wooden_axe'], \
                 inventory[i,0]['wooden_pickaxe']))
 
-        
+
         agent_state_mainhand = np.expand_dims(np.array(agent_state_mainhand), axis=0)
         agent_state_inventory = np.expand_dims(np.array(agent_state_inventory), axis=0)
-        world_state_a = np.swapaxes(pov, 1, 3)
-        world_state_a = np.swapaxes(world_state_a, 0, 1)
+
+        #print(len(pov))
+        world_state_a = np.stack(pov, axis=0)
+        #print(world_state_a.shape)
         world_state_a = np.expand_dims(world_state_a, axis=0)
-                
+        #print(world_state_a.shape)
+        world_state_a = np.swapaxes(world_state_a, 2, 4)
+        #print(world_state_a.shape)
+        world_state_a = np.swapaxes(world_state_a, 1, 2)
+        #print(world_state_a.shape)
+
         return agent_state_mainhand, agent_state_inventory, world_state_a
 
         
@@ -302,10 +309,6 @@ class Agent_TS():
         
         #states, actions, rewards, next_states, dones, indices, weights = experiences
         #( a_states_mh, a_states_invent, w_states, actions, rewards, a_next_states_mh, a_next_states_invent, w_next_states, dones ) = experiences
-
-
-        [print(item[0].shape) for item in experiences]
-        [print(item[0]) for item in experiences]
 
         #pil_img = transforms.ToPILImage()(experiences[0][2])
         #imshow(pil_img)

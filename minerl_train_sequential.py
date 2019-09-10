@@ -63,7 +63,6 @@ def extract_data_from_dict(current_state, action, reward, next_state, done):
     agent_mh.append(mainhand['damage'])
     agent_mh.append(mainhand['maxDamage'])
     agent_mh.append(mainhand['type'])
-    agent_mh_ts = agent_mh
     
 
     agent_inventory = []
@@ -85,7 +84,7 @@ def extract_data_from_dict(current_state, action, reward, next_state, done):
     agent_inventory.append(inventory['torch'])
     agent_inventory.append(inventory['wooden_axe'])
     agent_inventory.append(inventory['wooden_pickaxe'])
-    agent_inventory_ts = agent_inventory
+
 
     vertical_agent_mh = [np.vstack(item) for item in agent_mh]
     vertical_agent_invent = [np.vstack(item) for item in agent_inventory]
@@ -93,10 +92,6 @@ def extract_data_from_dict(current_state, action, reward, next_state, done):
     concat_agent_invent = np.concatenate(vertical_agent_invent, axis=1)
     
     swap_world_state = [np.swapaxes(item,0,2) for item in pov]
-    agent_world_ts = swap_world_state
-    
-    #[print(item.shape) for item in swap_world_state]   
-    
     vertical_world_state = np.stack(swap_world_state, axis=0)
     vertical_world_state = np.swapaxes(vertical_world_state, 0, 1)
     
@@ -143,12 +138,10 @@ def extract_data_from_dict(current_state, action, reward, next_state, done):
     concat_next_agent_invent = np.concatenate(vertical_next_agent_invent, axis=1)
 
     swap_next_world_state = [np.swapaxes(item,0,2) for item in pov]
-    
-    #[print(item.shape) for item in swap_world_state]   
-    
     vertical_next_world_state = np.stack(swap_next_world_state, axis=0)
+    #print(vertical_next_world_state.shape)
     vertical_next_world_state = np.swapaxes(vertical_next_world_state, 0, 1)
-
+    #print(vertical_next_world_state.shape)
     
     # get action list
     
@@ -260,7 +253,7 @@ writer = SummaryWriter()
 
 data = minerl.data.make(
     'MineRLObtainDiamondDense-v0',
-    data_dir="/home/darici/minerl/minerl/data")
+    data_dir="/home/desin/minerl/data")
 
 agent = Agent_TS(agent_mh_size = 3, agent_inventory_size = 18, world_state_size = [3, 32, 64, 64], action_size=14, random_seed=0)
 
@@ -280,13 +273,13 @@ agent_state_list = []
 
 loss_list = deque(maxlen=10000)
 
-pyplot.ion()
-pyplot.show()
-fig_1 = pyplot.figure(num=1)
-fig_1.set_size_inches(12, 6)
-pyplot.ylim(-50,50)
-fig_2 = pyplot.figure(num=2)
-pyplot.ylim(0,10)
+#pyplot.ion()
+#pyplot.show()
+#fig_1 = pyplot.figure(num=1)
+#fig_1.set_size_inches(12, 6)
+#pyplot.ylim(-50,50)
+#fig_2 = pyplot.figure(num=2)
+#pyplot.ylim(0,10)
 
 
 # Iterate through a single epoch gathering sequences of at most 32 steps
@@ -311,7 +304,9 @@ for current_state, action, reward, next_state, done in data.sarsd_iter(num_epoch
 
                 action_1, action_1_raw, _ , _  = agent.act(mainhand_a, inventory_a, pov_a)
             obs_1, reward_1, done_1, info = env.step(action_1)
-            
+            print(obs_1['pov'].shape)
+            print(experiences[2].shape)
+
             #print(action_1_raw)
             if (reward_1 >0):
                 active_reward = active_reward+1
@@ -339,7 +334,7 @@ for current_state, action, reward, next_state, done in data.sarsd_iter(num_epoch
                 "nearbySmelt":action_1_raw[0][9], "place":action_1_raw[0][10], "right":action_1_raw[0][11], \
                 "sneak":action_1_raw[0][12], "sprint":action_1_raw[0][13]}, global_step=eps_i)
 
-            if (eps_i%100==0):
+            if (eps_i%10000==0):
 
                  pyplot.figure(1)
                  pyplot.clf()

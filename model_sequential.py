@@ -42,31 +42,31 @@ class Actor_TS(nn.Module):
         self.cnn.add_module('norm3', nn.BatchNorm3d(growth_rate))
         self.cnn.add_module('relu3', nn.ReLU(inplace=True)) 
 
-        self.pov_lstm = torch.nn.LSTM(growth_rate, 20, num_layers=2, batch_first=True, bias=False)  
+        self.pov_lstm = torch.nn.LSTM(growth_rate, 20, num_layers=1, batch_first=True, bias=False)  
 
-        self.inventory_lstm = torch.nn.LSTM(agent_inventory_size, 20, num_layers=2, batch_first=True, bias=False)  
+        self.inventory_lstm = torch.nn.LSTM(agent_inventory_size, 20, num_layers=1, batch_first=True, bias=False)  
 
-        self.mh_lstm = torch.nn.LSTM(agent_mh_size, 20, num_layers=2, batch_first=True, bias=False)  
+        self.mh_lstm = torch.nn.LSTM(agent_mh_size, 20, num_layers=1, batch_first=True, bias=False)  
 
  
-        self.cnn_mh_inventory = torch.nn.LSTM(60, 40, num_layers=2, batch_first=True, bias=False)  
+        self.cnn_mh_inventory_lstm = torch.nn.LSTM(60, 40, num_layers=1, batch_first=True, bias=False)  
               
         
-        self.action_modules = nn.ModuleDict({
-            'attack': nn.Linear(40,1, bias=False),
-            'back': nn.Linear(40,1, bias=False),
-            'camera': nn.Linear(40,2, bias=False),
-            'craft': nn.Linear(40,5, bias=False),
-            'equip': nn.Linear(40,8, bias=False),
-            'forward_': nn.Linear(40,1, bias=False),
-            'jump': nn.Linear(40,1, bias=False),
-            'left': nn.Linear(40,1, bias=False),
-            'nearbyCraft': nn.Linear(40,8, bias=False),
-            'nearbySmelt': nn.Linear(40,3, bias=False),
-            'place': nn.Linear(40,7, bias=False),
-            'right': nn.Linear(40,1, bias=False),
-            'sneak': nn.Linear(40,1, bias=False),
-            'sprint': nn.Linear(40,1, bias=False)
+        self.action_modules_lstm = nn.ModuleDict({
+            'attack': nn.LSTM(40,1, batch_first=True, bias=False),
+            'back': nn.LSTM(40,1, batch_first=True, bias=False),
+            'camera': nn.LSTM(40,2, batch_first=True, bias=False),
+            'craft': nn.LSTM(40,5, batch_first=True, bias=False),
+            'equip': nn.LSTM(40,8, batch_first=True, bias=False),
+            'forward_': nn.LSTM(40,1, batch_first=True, bias=False),
+            'jump': nn.LSTM(40,1, batch_first=True, bias=False),
+            'left': nn.LSTM(40,1, batch_first=True, bias=False),
+            'nearbyCraft': nn.LSTM(40,8, batch_first=True, bias=False),
+            'nearbySmelt': nn.LSTM(40,3, batch_first=True, bias=False),
+            'place': nn.LSTM(40,7, batch_first=True, bias=False),
+            'right': nn.LSTM(40,1, batch_first=True, bias=False),
+            'sneak': nn.LSTM(40,1, batch_first=True, bias=False),
+            'sprint': nn.LSTM(40,1, batch_first=True, bias=False)
         })
  
         self.activation_modules = nn.ModuleDict({
@@ -85,7 +85,7 @@ class Actor_TS(nn.Module):
             'sneak': nn.Identity(),
             'sprint': nn.Identity(),
         })
-
+ 
         self.next_state_predict_cnn = nn.Sequential()
         self.next_state_predict_cnn.add_module('norm', nn.LayerNorm(40+action_size+1))
         self.next_state_predict_cnn.add_module('linear1', nn.Linear(40+action_size+1, 100, bias=False))
@@ -117,6 +117,10 @@ class Actor_TS(nn.Module):
 
         self.reset_parameters()
 
+    def init_hidden(self):
+        h0 = torch.nn.init.xavier_normal(num_layers, batch_size, hidden_size)
+        c0 = torch.nn.init.xavier_normal(num_layers, batch_size, hidden_size)
+
     def reset_parameters(self):
         
         for m in self.cnn:
@@ -125,14 +129,6 @@ class Actor_TS(nn.Module):
                 #nn.init.constant_(m.bias, 0)
             elif isinstance(m, nn.Linear):
                 nn.init.xavier_uniform_(m.weight, gain=nn.init.calculate_gain('relu'))
-            
-            
-        for m in self.action_modules:
-            if isinstance(m, nn.Conv2d):
-                torch.nn.init.xavier_normal_(m.weight, gain=nn.init.calculate_gain('tanh'))
-                #nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.Linear):
-                nn.init.xavier_uniform_(m.weight, gain=nn.init.calculate_gain('tanh'))
                 
         for m in self.next_state_predict_cnn:
             if isinstance(m, nn.Conv2d):
@@ -167,7 +163,7 @@ class Actor_TS(nn.Module):
         """Build an actor (policy) network that maps states -> actions."""
 
         #print(world_state[0,:,0,:,:].shape)
-        pil_img = transforms.ToPILImage()(world_state[0,:,0,:,:])
+        pil_img = transforms.ToPILImage()(world_state[0,:,0,:,:].cpu())
         imshow(pil_img)
         pyplot.show()
 
@@ -181,16 +177,16 @@ class Actor_TS(nn.Module):
 
 
         combined_state = torch.cat([world_state, agent_state_mh, agent_state_inventory], 2)
-        combined_state, (hidden, cell) = self.cnn_mh_inventory(combined_state) 
+        combined_state, (hidden, cell) = self.cnn_mh_inventory_lstm(combined_state) 
 
 
         actions = {}
         actions_raw = []
         action_logits = []
         
-        for action in self.action_modules:
+        for action in self.action_modules_lstm:
             
-            out = self.action_modules[action](combined_state[:,-1,:])
+            out, (hidden, cell) = self.action_modules_lstm[action](combined_state)
             out = self.activation_modules[action](out)
             
             
@@ -199,63 +195,43 @@ class Actor_TS(nn.Module):
             
             if action in ["craft", "equip","nearbyCraft","nearbySmelt","place"]:
                 action_logits.append(out)
-                out = F.softmax(out, dim=1)
-                out = out.argmax(dim=1, keepdim=True).float()
+                out = F.softmax(out, dim=2)
+                out = out.argmax(dim=2, keepdim=True).float()
             elif action != "camera":
                 action_logits.append(out)
                 out = torch.sigmoid(out)
                 zeros = torch.zeros_like(out)
                 ones = torch.ones_like(out)
-                out = torch.where(out > 0.5, ones, zeros).squeeze(dim=0).float()
+                out = torch.where(out > 0.5, ones, zeros).float()
             elif action == "camera":
                 out = torch.clamp(out, min=-180, max=180)
                 out = out.float()
                 action_logits.append(out)
-                                
-                
-            # raw action tensor for processing    
-            if (len(out.shape)) is 1:
-                out = out.unsqueeze(dim=0)
+                                       
             actions_raw.append(out)
             
-
             # action dictionary for environment            
             if action in ["craft", "equip","nearbyCraft","nearbySmelt","place"]:
-                actions[action] = out[0].int().item()
+                actions[action] = out[-1,-1,:].int().item()
             #elif action == "forward":
             #    actions[action] = 1                               
             elif action != "camera":
-                actions[action] = out[0].int().item()
+                actions[action] = out[-1,-1,:].int().item()
             elif action == "camera":
-                actions[action] = out[0].tolist()
+                actions[action] = out[-1,-1,:].tolist()
       
-        actions_raw = torch.cat(actions_raw, dim=1)
-        z = torch.cat([combined_state[:,-1,:], actions_raw], 1)
+
+        actions_raw = torch.cat(actions_raw, dim=2)
+        z = torch.cat([combined_state, actions_raw], 2)
         n_wsd_predict = self.next_state_predict_cnn(z)
         n_asmhd_predict = self.next_state_predict_agent_mh(z)
         n_asinventoryd_predict = self.next_state_predict_agent_inventory(z)
         q_value = self.qvalue(z)
         
-        action_logits = torch.cat(action_logits, dim=1)
-
+        action_logits = torch.cat(action_logits, dim=2)
         
         return actions, actions_raw, action_logits, q_value, n_wsd_predict, n_asmhd_predict, \
-            n_asinventoryd_predict, world_state[:,-1,:], agent_state_mh[:,-1,:], agent_state_inventory[:,-1,:]
-
-    def get_wsd(self, world_state):
-
-        x = self.cnn(world_state).squeeze(dim=2).squeeze(dim=2[:,-1,:])
-        x = self.fc1(x)
-        wsd = F.relu(x)  # world state descriptor
-        return wsd
-
-    def get_asmhd(self, agent_state_mh):
-        asmhd = self.mh(agent_state_mh) # agent state descriptor
-        return asmhd
-
-    def get_asinventoryd(self, agent_state_inventory):
-        asinventoryd = self.inventory(agent_state_inventory) # agent state descriptor
-        return asinventoryd
+            n_asinventoryd_predict, world_state, agent_state_mh, agent_state_inventory
 
 
 

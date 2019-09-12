@@ -253,7 +253,7 @@ writer = SummaryWriter()
 
 data = minerl.data.make(
     'MineRLObtainDiamondDense-v0',
-    data_dir="/home/desin/minerl/data")
+    data_dir="/home/darici/minerl/minerl/data")
 
 agent = Agent_TS(agent_mh_size = 3, agent_inventory_size = 18, world_state_size = [3, 32, 64, 64], action_size=14, random_seed=0)
 
@@ -273,7 +273,7 @@ agent_state_list = []
 
 loss_list = deque(maxlen=10000)
 
-#pyplot.ion()
+pyplot.ion()
 #pyplot.show()
 #fig_1 = pyplot.figure(num=1)
 #fig_1.set_size_inches(12, 6)
@@ -315,47 +315,16 @@ for current_state, action, reward, next_state, done in data.sarsd_iter(num_epoch
                 print("REWARD !!!!! {}".format(active_reward))
 
 
-            # collect camera pitch/yaw values produces
-            camera_list.append(action_1_raw[0][2:4].cpu().numpy())
-
-            writer.add_scalars('Camera', {'picth':action_1_raw[0][2], 'yaw':action_1_raw[0][3]}, global_step=eps_i)
-
-            # count actions other than camera
-            actions_only = np.concatenate(((action_1_raw[0])[0:2].cpu().int(), (action_1_raw[0])[4:].cpu().int()))
-            one_hot_actions = np.zeros((action_s-1,10), dtype=int)
-            one_hot_actions[np.arange(action_s-1), actions_only] = 1
-
-            action_counts = action_counts + one_hot_actions
+            writer.add_scalars('Camera', {'picth':action_1_raw[-1,-1,2], 'yaw':action_1_raw[-1,-1,3]}, global_step=eps_i)
 
 
-            writer.add_scalars('actions', {"attack":action_1_raw[0][0], "back":action_1_raw[0][1], \
-                "craft":action_1_raw[0][0], "equip":action_1_raw[0][4], "forward":action_1_raw[0][5], \
-                "jump":action_1_raw[0][6], "left":action_1_raw[0][7], "nearbyCraft":action_1_raw[0][8], \
-                "nearbySmelt":action_1_raw[0][9], "place":action_1_raw[0][10], "right":action_1_raw[0][11], \
-                "sneak":action_1_raw[0][12], "sprint":action_1_raw[0][13]}, global_step=eps_i)
+            writer.add_scalars('actions', {"attack":action_1_raw[-1,-1,0], "back":action_1_raw[-1,-1,1], \
+                "craft":action_1_raw[-1,-1,0], "equip":action_1_raw[-1,-1,4], "forward":action_1_raw[-1,-1,5], \
+                "jump":action_1_raw[-1,-1,6], "left":action_1_raw[-1,-1,7], "nearbyCraft":action_1_raw[-1,-1,8], \
+                "nearbySmelt":action_1_raw[-1,-1,9], "place":action_1_raw[-1,-1,10], "right":action_1_raw[-1,-1,11], \
+                "sneak":action_1_raw[-1,-1,12], "sprint":action_1_raw[-1,-1,13]}, global_step=eps_i)
 
-            if (eps_i%10000==0):
 
-                 pyplot.figure(1)
-                 pyplot.clf()
-                 pyplot.ylim(-50,50)
-                 for i,x in enumerate(action_names):
-                     max_s = 1+max(action_counts[i,:])/100
-                     pyplot.scatter([action_names[i]]*10, np.arange(10), s=action_counts[i,:]/max_s)
-
-                 for xe, ye in zip(camera_action_names, [[(camera_list[li])[ci]  for li in range(len(camera_list))] for ci in range(len(camera_action_names)) ]):
-                     pyplot.scatter([xe] * len(ye), ye)
-
-                 pyplot.draw()
-                 pyplot.pause(0.001)
-
-                 pyplot.figure(2)
-                 pyplot.clf()
-                 pyplot.ylim(-50,100)
-                 pyplot.plot(np.arange(len(loss_list)), [sublist[0] for sublist in loss_list])
-                 pyplot.plot(np.arange(len(loss_list)), [sublist[1] for sublist in loss_list])
-                 pyplot.draw()
-                 pyplot.pause(0.001)
         else:
             print("RESET ----------------")
             active_reward = 0

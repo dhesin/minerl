@@ -22,7 +22,7 @@ BUFFER_SIZE = int(5e4)  # replay buffer size
 BATCH_SIZE = 4         # minibatch size
 GAMMA = 1.0            # discount factor
 TAU = 1e-2              # for soft update of target parameters
-LR_ACTOR = 1e-4         # learning rate of the actor 
+LR_ACTOR = 1e-5         # learning rate of the actor 
 LR_CRITIC = 1e-4        # learning rate of the critic
 WEIGHT_DECAY = 0.000   # L2 weight decay
 
@@ -226,8 +226,7 @@ class Agent_TS():
         for target_param, local_param in zip(target_model.parameters(), local_model.parameters()):
             target_param.data.copy_(tau*local_param.data + (1.0-tau)*target_param.data)
 
-    def get_action_loss(self, writer, gt, onehot_probs, mh_state_loss, inventory_state_loss, \
-        world_state_loss, rewards, q_diff_loss=None, q_value_loss=None):
+    def get_action_loss(self, writer, gt, onehot_probs, rewards, q_diff_loss=None, q_value_loss=None):
 
         onehot_probs = onehot_probs.view(-1,41)
         gt = gt.view(-1,15)
@@ -238,21 +237,21 @@ class Agent_TS():
         rewards = rewards.view(-1)
 
 
-        attack_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,0], gt[:,0])-(rewards*onehot_probs[:,0]).sum()
-        back_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,1], gt[:,1])-(rewards*onehot_probs[:,1]).sum()
-        pitch_loss = F.mse_loss(onehot_probs[:,2], gt[:,2])-(rewards*onehot_probs[:,2]).sum()
-        yaw_loss = F.mse_loss(onehot_probs[:,3], gt[:,3])-(rewards*onehot_probs[:,3]).sum()
-        craft_loss = F.cross_entropy(onehot_probs[:,4:9], gt[:,4].long())-(rewards*onehot_probs[:,gt[:,4].long()]).sum()
-        equip_loss = F.cross_entropy(onehot_probs[:,9:17], gt[:,5].long())-(rewards*onehot_probs[:,gt[:,5].long()]).sum()
-        forward_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,17], gt[:,6])-(rewards*onehot_probs[:,17]).sum()
-        jump_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,18], gt[:,7])-(rewards*onehot_probs[:,18]).sum()
-        left_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,19], gt[:,8])-(rewards*onehot_probs[:,19]).sum()
-        nearby_craft_loss = F.cross_entropy(onehot_probs[:,20:28], gt[:,9].long())-(rewards*onehot_probs[:,gt[:,9].long()]).sum()
-        nearby_smelt_loss = F.cross_entropy(onehot_probs[:,28:31], gt[:,10].long())-(rewards*onehot_probs[:,gt[:,10].long()]).sum()
-        place_loss = F.cross_entropy(onehot_probs[:,31:38], gt[:,11].long())-(rewards*onehot_probs[:,gt[:,11].long()]).sum()
-        right_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,38], gt[:,12])-(rewards*onehot_probs[:,38]).sum()
-        sneak_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,39], gt[:,13])-(rewards*onehot_probs[:,39]).sum()
-        sprint_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,40], gt[:,14])-(rewards*onehot_probs[:,40]).sum()
+        attack_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,0], gt[:,0])-(rewards).sum()
+        back_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,1], gt[:,1])-(rewards).sum()
+        pitch_loss = F.mse_loss(onehot_probs[:,2], gt[:,2])-(rewards).sum()
+        yaw_loss = F.mse_loss(onehot_probs[:,3], gt[:,3])-(rewards).sum()
+        craft_loss = F.cross_entropy(onehot_probs[:,4:9], gt[:,4].long())-(rewards).sum()
+        equip_loss = F.cross_entropy(onehot_probs[:,9:17], gt[:,5].long())-(rewards).sum()
+        forward_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,17], gt[:,6])-(rewards).sum()
+        jump_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,18], gt[:,7])-(rewards).sum()
+        left_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,19], gt[:,8])-(rewards).sum()
+        nearby_craft_loss = F.cross_entropy(onehot_probs[:,20:28], gt[:,9].long())-(rewards).sum()
+        nearby_smelt_loss = F.cross_entropy(onehot_probs[:,28:31], gt[:,10].long())-(rewards).sum()
+        place_loss = F.cross_entropy(onehot_probs[:,31:38], gt[:,11].long())-(rewards).sum()
+        right_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,38], gt[:,12])-(rewards).sum()
+        sneak_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,39], gt[:,13])-(rewards).sum()
+        sprint_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,40], gt[:,14])-(rewards).sum()
         
 
         writer.add_scalars('Losses', {"attack":attack_loss, "back":back_loss, \
@@ -263,11 +262,11 @@ class Agent_TS():
 
         writer.add_scalars('Camera Losses', {"pitch":pitch_loss, "yaw":yaw_loss}, global_step=self.iter)
 
-        writer.add_scalars('State Prediction Losses', {"MainHand":mh_state_loss, "Inventory":inventory_state_loss, "World":world_state_loss}, global_step=self.iter)
+        #writer.add_scalars('State Prediction Losses', {"MainHand":mh_state_loss, "Inventory":inventory_state_loss, "World":world_state_loss}, global_step=self.iter)
 
 
         self.actor_optimizer.zero_grad()
-        self.critic_optimizer.zero_grad()
+        #self.critic_optimizer.zero_grad()
 
         if q_value_loss is None and q_diff_loss is None:
             torch.autograd.backward([attack_loss,back_loss,pitch_loss,yaw_loss,craft_loss,equip_loss,\
@@ -280,15 +279,14 @@ class Agent_TS():
 
             torch.autograd.backward([attack_loss,back_loss,pitch_loss,yaw_loss,craft_loss,equip_loss,\
                     forward_loss,jump_loss,left_loss,nearby_craft_loss,nearby_smelt_loss,place_loss, \
-                    right_loss,sneak_loss,sprint_loss,mh_state_loss,inventory_state_loss, \
-                    world_state_loss, q_diff_loss])
+                    right_loss,sneak_loss,sprint_loss, q_diff_loss])
 
 
-        torch.nn.utils.clip_grad_norm_(self.actor_local.parameters(), 1)
-        torch.nn.utils.clip_grad_norm_(self.critic_local.parameters(), 1)
+        #torch.nn.utils.clip_grad_norm_(self.actor_local.parameters(), 1)
+        #torch.nn.utils.clip_grad_norm_(self.critic_local.parameters(), 1)
         
         self.actor_optimizer.step()
-        self.critic_optimizer.step()
+        #self.critic_optimizer.step()
         
         #print(attack_loss)
         #print(back_loss)
@@ -365,9 +363,7 @@ class Agent_TS():
         #        F.mse_loss(mhd_next, n_asmhd_predict), F.mse_loss(inventd_next, n_asinventd_predict), \
         #        F.mse_loss(wsd_next, n_wsd_predict), F.mse_loss(Q_current, Q_current_2), -Q_current.mean())
 
-        loss_1, loss_2 = self.get_action_loss(writer, actions, action_logits, \
-                F.mse_loss(mhd_next, n_asmhd_predict), F.mse_loss(inventd_next, n_asinventd_predict), \
-                F.mse_loss(wsd_next, n_wsd_predict), rewards)
+        loss_1, loss_2 = self.get_action_loss(writer, actions, action_logits, rewards)
 
         print("Actor Losses:{} {}".format(loss_1.item(), loss_2.item()))
         return loss_1, loss_2
@@ -414,6 +410,9 @@ class NaivePrioritizedBuffer(object):
     def add(self, experiences):
 
         if len(experiences[0])<16:
+            return
+
+        if (experiences[4].sum() == 0 and random.random()<=0.25):
             return
    
         if len(self.memory) < self.capacity:

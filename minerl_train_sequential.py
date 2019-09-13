@@ -304,6 +304,10 @@ for current_state, action, reward, next_state, done in data.sarsd_iter(num_epoch
 
                 action_1, action_1_raw, _ , _  = agent.act(mainhand_a, inventory_a, pov_a)
             obs_1, reward_1, done_1, info = env.step(action_1)
+            if (action_1["forward"] > 1):
+                print(info)
+                print(exit)
+
             print(obs_1['pov'].shape)
             print(experiences[2].shape)
 
@@ -319,10 +323,10 @@ for current_state, action, reward, next_state, done in data.sarsd_iter(num_epoch
 
 
             writer.add_scalars('actions', {"attack":action_1_raw[-1,-1,0], "back":action_1_raw[-1,-1,1], \
-                "craft":action_1_raw[-1,-1,0], "equip":action_1_raw[-1,-1,4], "forward":action_1_raw[-1,-1,5], \
-                "jump":action_1_raw[-1,-1,6], "left":action_1_raw[-1,-1,7], "nearbyCraft":action_1_raw[-1,-1,8], \
-                "nearbySmelt":action_1_raw[-1,-1,9], "place":action_1_raw[-1,-1,10], "right":action_1_raw[-1,-1,11], \
-                "sneak":action_1_raw[-1,-1,12], "sprint":action_1_raw[-1,-1,13]}, global_step=eps_i)
+                "craft":action_1_raw[-1,-1,4], "equip":action_1_raw[-1,-1,5], "forward":action_1_raw[-1,-1,6], \
+                "jump":action_1_raw[-1,-1,7], "left":action_1_raw[-1,-1,8], "nearbyCraft":action_1_raw[-1,-1,9], \
+                "nearbySmelt":action_1_raw[-1,-1,10], "place":action_1_raw[-1,-1,11], "right":action_1_raw[-1,-1,12], \
+                "sneak":action_1_raw[-1,-1,13], "sprint":action_1_raw[-1,-1,14]}, global_step=eps_i)
 
 
         else:

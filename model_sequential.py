@@ -69,21 +69,38 @@ class Actor_TS(nn.Module):
             'sprint': nn.LSTM(40,1, num_layers=4, batch_first=True, bias=False)
         })
  
+        self.action_modules_1 = nn.ModuleDict({
+            'attack': nn.Linear(40,1, bias=False),
+            'back': nn.Linear(40,1, bias=False),
+            'camera': nn.Linear(40,2, bias=False),
+            'craft': nn.Linear(40,5, bias=False),
+            'equip': nn.Linear(40,8, bias=False),
+            'forward_': nn.Linear(40,1, bias=False),
+            'jump': nn.Linear(40,1, bias=False),
+            'left': nn.Linear(40,1, bias=False),
+            'nearbyCraft': nn.Linear(40,8, bias=False),
+            'nearbySmelt': nn.Linear(40,3, bias=False),
+            'place': nn.Linear(40,7, bias=False),
+            'right': nn.Linear(40,1, bias=False),
+            'sneak': nn.Linear(40,1, bias=False),
+            'sprint': nn.Linear(40,1, bias=False)
+        })
+
         self.activation_modules = nn.ModuleDict({
-            'attack': nn.Identity(),
-            'back': nn.Identity(),
+            'attack': nn.Softplus(),
+            'back': nn.Softplus(),
             'camera': nn.Tanhshrink(),
-            'craft': nn.Identity(),
-            'equip': nn.Identity(),
-            'forward_': nn.Identity(),
-            'jump': nn.Identity(),
-            'left': nn.Identity(),
-            'nearbyCraft': nn.Identity(),
-            'nearbySmelt': nn.Identity(),
-            'place': nn.Identity(),
-            'right': nn.Identity(),
-            'sneak': nn.Identity(),
-            'sprint': nn.Identity(),
+            'craft': nn.Softplus(),
+            'equip': nn.Softplus(),
+            'forward_': nn.Softplus(),
+            'jump': nn.Softplus(),
+            'left': nn.Softplus(),
+            'nearbyCraft': nn.Softplus(),
+            'nearbySmelt': nn.Softplus(),
+            'place': nn.Softplus(),
+            'right': nn.Softplus(),
+            'sneak': nn.Softplus(),
+            'sprint': nn.Softplus(),
         })
  
         self.next_state_predict_cnn = nn.Sequential()
@@ -187,10 +204,12 @@ class Actor_TS(nn.Module):
         for action in self.action_modules_lstm:
             
             #if (action != "camera"):
-            out, (hidden, cell) = self.action_modules_lstm[action](combined_state)
+            #out, (hidden, cell) = self.action_modules_lstm[action](combined_state)
             #else:
             #    out = self.action_modules_lstm[action](combined_state)
-            #out = self.activation_modules[action](out)
+            out = self.activation_modules[action](combined_state)
+            out = self.action_modules_1[action](out)
+            out = self.activation_modules[action](out)
             
             
             if action == "forward_":

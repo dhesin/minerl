@@ -22,7 +22,7 @@ BUFFER_SIZE = int(5e4)  # replay buffer size
 BATCH_SIZE = 4         # minibatch size
 GAMMA = 1.0            # discount factor
 TAU = 1e-2              # for soft update of target parameters
-LR_ACTOR = 1e-5         # learning rate of the actor 
+LR_ACTOR = 1e-4         # learning rate of the actor 
 LR_CRITIC = 1e-4        # learning rate of the critic
 WEIGHT_DECAY = 0.000   # L2 weight decay
 
@@ -231,27 +231,27 @@ class Agent_TS():
         onehot_probs = onehot_probs.view(-1,41)
         gt = gt.view(-1,15)
 
-        b_r = rewards.sum(dim=1)/16
-        for i in range(rewards.shape[0]):
-            rewards[i,:] = rewards[i,:]+b_r[i]
-        rewards = rewards.view(-1)
+        #b_r = rewards.sum(dim=1)/16
+        #for i in range(rewards.shape[0]):
+        #    rewards[i,:] = rewards[i,:]+b_r[i]
+        #rewards = rewards.view(-1)
 
 
-        attack_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,0], gt[:,0])-(rewards).sum()
-        back_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,1], gt[:,1])-(rewards).sum()
-        pitch_loss = F.mse_loss(onehot_probs[:,2], gt[:,2])-(rewards).sum()
-        yaw_loss = F.mse_loss(onehot_probs[:,3], gt[:,3])-(rewards).sum()
-        craft_loss = F.cross_entropy(onehot_probs[:,4:9], gt[:,4].long())-(rewards).sum()
-        equip_loss = F.cross_entropy(onehot_probs[:,9:17], gt[:,5].long())-(rewards).sum()
-        forward_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,17], gt[:,6])-(rewards).sum()
-        jump_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,18], gt[:,7])-(rewards).sum()
-        left_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,19], gt[:,8])-(rewards).sum()
-        nearby_craft_loss = F.cross_entropy(onehot_probs[:,20:28], gt[:,9].long())-(rewards).sum()
-        nearby_smelt_loss = F.cross_entropy(onehot_probs[:,28:31], gt[:,10].long())-(rewards).sum()
-        place_loss = F.cross_entropy(onehot_probs[:,31:38], gt[:,11].long())-(rewards).sum()
-        right_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,38], gt[:,12])-(rewards).sum()
-        sneak_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,39], gt[:,13])-(rewards).sum()
-        sprint_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,40], gt[:,14])-(rewards).sum()
+        attack_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,0], gt[:,0])
+        back_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,1], gt[:,1])
+        pitch_loss = F.mse_loss(onehot_probs[:,2], gt[:,2])
+        yaw_loss = F.mse_loss(onehot_probs[:,3], gt[:,3])
+        craft_loss = F.cross_entropy(onehot_probs[:,4:9], gt[:,4].long())
+        equip_loss = F.cross_entropy(onehot_probs[:,9:17], gt[:,5].long())
+        forward_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,17], gt[:,6])
+        jump_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,18], gt[:,7])
+        left_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,19], gt[:,8])
+        nearby_craft_loss = F.cross_entropy(onehot_probs[:,20:28], gt[:,9].long())
+        nearby_smelt_loss = F.cross_entropy(onehot_probs[:,28:31], gt[:,10].long())
+        place_loss = F.cross_entropy(onehot_probs[:,31:38], gt[:,11].long())
+        right_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,38], gt[:,12])
+        sneak_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,39], gt[:,13])
+        sprint_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,40], gt[:,14])
         
 
         writer.add_scalars('Losses', {"attack":attack_loss, "back":back_loss, \

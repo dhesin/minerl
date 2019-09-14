@@ -42,31 +42,31 @@ class Actor_TS(nn.Module):
         self.cnn.add_module('norm3', nn.BatchNorm3d(growth_rate))
         self.cnn.add_module('relu3', nn.ReLU(inplace=True)) 
 
-        self.pov_lstm = torch.nn.LSTM(growth_rate, 60, num_layers=4, batch_first=True, bias=False)  
+        self.pov_lstm = torch.nn.LSTM(growth_rate, 60, num_layers=2, batch_first=True, bias=False)  
 
-        self.inventory_lstm = torch.nn.LSTM(agent_inventory_size, 20, num_layers=4, batch_first=True, bias=False)  
+        self.inventory_lstm = torch.nn.LSTM(agent_inventory_size, 20, num_layers=2, batch_first=True, bias=False)  
 
-        self.mh_lstm = torch.nn.LSTM(agent_mh_size, 20, num_layers=4, batch_first=True, bias=False)  
+        self.mh_lstm = torch.nn.LSTM(agent_mh_size, 20, num_layers=2, batch_first=True, bias=False)  
 
  
-        self.cnn_mh_inventory_lstm = torch.nn.LSTM(100, 40, num_layers=4, batch_first=True, bias=False)  
+        self.cnn_mh_inventory_lstm = torch.nn.LSTM(100, 40, num_layers=2, batch_first=True, bias=False)  
               
         
         self.action_modules_lstm = nn.ModuleDict({
-            'attack': nn.LSTM(40,1, num_layers=4, batch_first=True, bias=False),
-            'back': nn.LSTM(40,1, num_layers=4, batch_first=True, bias=False),
-            'camera': nn.LSTM(40,2, num_layers=4, batch_first=True, bias=False),
-            'craft': nn.LSTM(40,5, num_layers=4, batch_first=True, bias=False),
-            'equip': nn.LSTM(40,8, num_layers=4, batch_first=True, bias=False),
-            'forward_': nn.LSTM(40,1, num_layers=4, batch_first=True, bias=False),
-            'jump': nn.LSTM(40,1, num_layers=4, batch_first=True, bias=False),
-            'left': nn.LSTM(40,1, num_layers=4, batch_first=True, bias=False),
-            'nearbyCraft': nn.LSTM(40,8, num_layers=4, batch_first=True, bias=False),
-            'nearbySmelt': nn.LSTM(40,3, num_layers=4, batch_first=True, bias=False),
-            'place': nn.LSTM(40,7, num_layers=4, batch_first=True, bias=False),
-            'right': nn.LSTM(40,1, num_layers=4, batch_first=True, bias=False),
-            'sneak': nn.LSTM(40,1, num_layers=4, batch_first=True, bias=False),
-            'sprint': nn.LSTM(40,1, num_layers=4, batch_first=True, bias=False)
+            'attack': nn.LSTM(40,1, num_layers=2, batch_first=True, bias=False),
+            'back': nn.LSTM(40,1, num_layers=2, batch_first=True, bias=False),
+            'camera': nn.LSTM(40,2, num_layers=2, batch_first=True, bias=False),
+            'craft': nn.LSTM(40,5, num_layers=2, batch_first=True, bias=False),
+            'equip': nn.LSTM(40,8, num_layers=2, batch_first=True, bias=False),
+            'forward_': nn.LSTM(40,1, num_layers=2, batch_first=True, bias=False),
+            'jump': nn.LSTM(40,1, num_layers=2, batch_first=True, bias=False),
+            'left': nn.LSTM(40,1, num_layers=2, batch_first=True, bias=False),
+            'nearbyCraft': nn.LSTM(40,8, num_layers=2, batch_first=True, bias=False),
+            'nearbySmelt': nn.LSTM(40,3, num_layers=2, batch_first=True, bias=False),
+            'place': nn.LSTM(40,7, num_layers=2, batch_first=True, bias=False),
+            'right': nn.LSTM(40,1, num_layers=2, batch_first=True, bias=False),
+            'sneak': nn.LSTM(40,1, num_layers=2, batch_first=True, bias=False),
+            'sprint': nn.LSTM(40,1, num_layers=2, batch_first=True, bias=False)
         })
  
         self.action_modules_1 = nn.ModuleDict({

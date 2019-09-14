@@ -286,76 +286,78 @@ pyplot.ion()
 eps_i=0
 done_1=False
 active_reward=0
-for current_state, action, reward, next_state, done in data.sarsd_iter(num_epochs=10, max_sequence_len=16, seed=0):
-
-
-        #print(action['camera'])
-        eps_i = eps_i+1
-        done = np.delete(done, -1)
-        experiences = extract_data_from_dict(current_state, action, reward, next_state, done)
-        agent.learn_from_players(experiences, writer)
-        
-        
-        if (reward[-1] > 0):
-            print("Training Reward:{}".format(reward[-1]))
-
-        if (done_1==False):
-            with torch.no_grad():
-
-                action_1, action_1_raw, _ , _  = agent.act(mainhand_a, inventory_a, pov_a)
-            obs_1, reward_1, done_1, info = env.step(action_1)
-            if (action_1["forward"] > 1):
-                print(info)
-                print(exit)
-
-            print(obs_1['pov'].shape)
-            print(experiences[2].shape)
-
-            #print(action_1_raw)
-            if (reward_1 >0):
-                active_reward = active_reward+1
-                print("REWARD !!!!!!!!!!!!!!!!!!!!!! {}".format(active_reward))
-            if (active_reward > 0):
-                print("REWARD !!!!! {}".format(active_reward))
-
-
-            writer.add_scalars('Camera', {'picth':action_1_raw[-1,-1,2], 'yaw':action_1_raw[-1,-1,3]}, global_step=eps_i)
-
-
-            writer.add_scalars('actions', {"attack":action_1_raw[-1,-1,0], "back":action_1_raw[-1,-1,1], \
-                "craft":action_1_raw[-1,-1,4], "equip":action_1_raw[-1,-1,5], "forward":action_1_raw[-1,-1,6], \
-                "jump":action_1_raw[-1,-1,7], "left":action_1_raw[-1,-1,8], "nearbyCraft":action_1_raw[-1,-1,9], \
-                "nearbySmelt":action_1_raw[-1,-1,10], "place":action_1_raw[-1,-1,11], "right":action_1_raw[-1,-1,12], \
-                "sneak":action_1_raw[-1,-1,13], "sprint":action_1_raw[-1,-1,14]}, global_step=eps_i)
-
-
-        else:
-            print("RESET ----------------")
-            active_reward = 0
-            env.seed(1255)
-            obs_1 = env.reset()
-            done_1=False
+for epoch in range(1:10):
+    for current_state, action, reward, next_state, done in data.sarsd_iter(num_epochs=1, max_sequence_len=16, seed=0):
+            #print(action['camera'])
+            eps_i = eps_i+1
+            done = np.delete(done, -1)
+            experiences = extract_data_from_dict(current_state, action, reward, next_state, done)
+            agent.learn_from_players(experiences, writer)
             
+            
+            if (reward[-1] > 0):
+                print("Training Reward:{}".format(reward[-1]))
 
-        print(info)
+            if (done_1==False):
+                with torch.no_grad():
 
-        if eps_i % 1000 == 0:
-            print(agent.actor_scheduler.get_lr())
-            print('\nEpisode:{}\t       '.format(eps_i), end="")
-            torch.save(agent.actor_local.state_dict(), 'checkpoint_actor.pth')
- 
-        #action_1 = env.action_space.sample()
-        #print(action_1)
-        #experience = extract_data_from_dict_single(obs_a, action_1, reward_1, obs_1, done_1)
-        #agent.add_memory(experience)
+                    action_1, action_1_raw, _ , _  = agent.act(mainhand_a, inventory_a, pov_a)
+                obs_1, reward_1, done_1, info = env.step(action_1)
+                if (action_1["forward"] > 1):
+                    print(info)
+                    print(exit)
 
-        obs_a = obs_1
-        mainhand_a.append(obs_a['equipped_items']['mainhand'])
-        inventory_a.append(obs_a['inventory'])
-        pov_a.append((obs_a['pov']))
+                print(obs_1['pov'].shape)
+                print(experiences[2].shape)
 
-        env.render()
+                #print(action_1_raw)
+                if (reward_1 >0):
+                    active_reward = active_reward+1
+                    print("REWARD !!!!!!!!!!!!!!!!!!!!!! {}".format(active_reward))
+                if (active_reward > 0):
+                    print("REWARD !!!!! {}".format(active_reward))
 
+
+                writer.add_scalars('Camera', {'picth':action_1_raw[-1,-1,2], 'yaw':action_1_raw[-1,-1,3]}, global_step=eps_i)
+
+
+                writer.add_scalars('actions', {"attack":action_1_raw[-1,-1,0], "back":action_1_raw[-1,-1,1], \
+                    "craft":action_1_raw[-1,-1,4], "equip":action_1_raw[-1,-1,5], "forward":action_1_raw[-1,-1,6], \
+                    "jump":action_1_raw[-1,-1,7], "left":action_1_raw[-1,-1,8], "nearbyCraft":action_1_raw[-1,-1,9], \
+                    "nearbySmelt":action_1_raw[-1,-1,10], "place":action_1_raw[-1,-1,11], "right":action_1_raw[-1,-1,12], \
+                    "sneak":action_1_raw[-1,-1,13], "sprint":action_1_raw[-1,-1,14]}, global_step=eps_i)
+
+
+            else:
+                print("RESET ----------------")
+                active_reward = 0
+                env.seed(1255)
+                obs_1 = env.reset()
+                done_1=False
+                
+
+            print(info)
+
+            if eps_i % 1000 == 0:
+                print('\nEpisode:{}\t       '.format(eps_i), end="")
+                torch.save(agent.actor_local.state_dict(), 'checkpoint_actor.pth')
+     
+            #action_1 = env.action_space.sample()
+            #print(action_1)
+            #experience = extract_data_from_dict_single(obs_a, action_1, reward_1, obs_1, done_1)
+            #agent.add_memory(experience)
+
+            obs_a = obs_1
+            mainhand_a.append(obs_a['equipped_items']['mainhand'])
+            inventory_a.append(obs_a['inventory'])
+            pov_a.append((obs_a['pov']))
+
+            env.render()
+
+    print("num iterations in an epoch:{}".format(eps_i))
+    eps_i = 0
+    agent.actor_scheduler.step()
+    print(agent.actor_scheduler.get_lr())
 
 print("DONE")
 

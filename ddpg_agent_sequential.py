@@ -22,7 +22,7 @@ BUFFER_SIZE = int(5e4)  # replay buffer size
 BATCH_SIZE = 4         # minibatch size
 GAMMA = 1.0            # discount factor
 TAU = 1e-2              # for soft update of target parameters
-LR_ACTOR = 1e-4         # learning rate of the actor 
+LR_ACTOR = 1e-5         # learning rate of the actor 
 LR_CRITIC = 1e-4        # learning rate of the critic
 WEIGHT_DECAY = 0.000   # L2 weight decay
 
@@ -57,7 +57,7 @@ class Agent_TS():
         self.actor_target = Actor_TS(self.agent_mh_size, self.agent_inventory_size, self.world_state_size, self.action_size, self.seed).to(device)
         self.actor_optimizer = optim.Adam(self.actor_local.parameters(), lr=LR_ACTOR)
         #self.actor_optimizer = optim.Adam(self.actor_local.parameters())
-        self.actor_scheduler = optim.lr_scheduler.StepLR(self.actor_optimizer, step_size=200, gamma=0.99)
+        self.actor_scheduler = optim.lr_scheduler.StepLR(self.actor_optimizer, step_size=1, gamma=0.99)
         
         
         # Critic Network (w/ Target Network)

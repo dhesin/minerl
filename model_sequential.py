@@ -16,7 +16,8 @@ def hidden_init(layer):
 class Actor_TS(nn.Module):
     """Actor (Policy) Model."""
 
-    def __init__(self, agent_mh_size, agent_inventory_size, world_state_size, action_size, seed, growth_rate=128):
+    def __init__(self, agent_mh_size, agent_inventory_size, world_state_size,\
+            action_size, seed, seq_len, growth_rate=128):
         """Initialize parameters and build model.
         Params
         ======
@@ -24,6 +25,7 @@ class Actor_TS(nn.Module):
         
         super(Actor_TS, self).__init__()
         self.seed = torch.manual_seed(seed)
+        self.seq_len = seq_len
         
         n_c = world_state_size[0]
         n_d = world_state_size[1]
@@ -44,8 +46,10 @@ class Actor_TS(nn.Module):
 
         self.pov_lstm = torch.nn.LSTM(growth_rate, 60, num_layers=2, batch_first=True, bias=False)  
 
+        self.normalize_inventory = nn.BatchNorm1d(self.seq_len)
         self.inventory_lstm = torch.nn.LSTM(agent_inventory_size, 20, num_layers=2, batch_first=True, bias=False)  
-
+        
+        self.normalize_mh = nn.BatchNorm1d(self.seq_len)
         self.mh_lstm = torch.nn.LSTM(agent_mh_size, 20, num_layers=2, batch_first=True, bias=False)  
 
  
@@ -180,16 +184,18 @@ class Actor_TS(nn.Module):
         """Build an actor (policy) network that maps states -> actions."""
 
         #print(world_state[0,:,0,:,:].shape)
-        pil_img = transforms.ToPILImage()(world_state[0,:,0,:,:].cpu())
-        imshow(pil_img)
-        pyplot.show()
+        #pil_img = transforms.ToPILImage()(world_state[0,:,0,:,:].cpu())
+        #imshow(pil_img)
+        #pyplot.show()
 
         x = self.cnn(world_state).squeeze(dim=3).squeeze(dim=3)
         x = x.permute(0,2,1)
         world_state, (hidden, cell) = self.pov_lstm(x)
 
+        agent_state_inventory = self.normalize_inventory(agent_state_inventory)
         agent_state_inventory, (hidden, cell) = self.inventory_lstm(agent_state_inventory)
 
+        agent_state_mh = self.normalize_mh(agent_state_mh)
         agent_state_mh, (hidden, cell) = self.mh_lstm(agent_state_mh)
 
 
@@ -204,12 +210,12 @@ class Actor_TS(nn.Module):
         for action in self.action_modules_lstm:
             
             #if (action != "camera"):
-            #out, (hidden, cell) = self.action_modules_lstm[action](combined_state)
+            out, (hidden, cell) = self.action_modules_lstm[action](combined_state)
             #else:
             #    out = self.action_modules_lstm[action](combined_state)
-            out = self.activation_modules[action](combined_state)
-            out = self.action_modules_1[action](out)
-            out = self.activation_modules[action](out)
+            #out = self.activation_modules[action](combined_state)
+            #out = self.action_modules_1[action](combined_state)
+            #out = self.activation_modules[action](out)
             
             
             if action == "forward_":
@@ -226,7 +232,6 @@ class Actor_TS(nn.Module):
                 ones = torch.ones_like(out)
                 out = torch.where(out > 0.5, ones, zeros).float()
             elif action == "camera":
-                out = 180.0*100*out
                 out = torch.clamp(out, min=-180, max=180)
                 out = out.float()
                 action_logits.append(out)

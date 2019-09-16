@@ -22,7 +22,7 @@ BUFFER_SIZE = int(5e4)  # replay buffer size
 BATCH_SIZE = 4         # minibatch size
 GAMMA = 1.0            # discount factor
 TAU = 1e-2              # for soft update of target parameters
-LR_ACTOR = 1e-5         # learning rate of the actor 
+LR_ACTOR = 1e-6         # learning rate of the actor 
 LR_CRITIC = 1e-4        # learning rate of the critic
 WEIGHT_DECAY = 0.000   # L2 weight decay
 
@@ -49,13 +49,51 @@ class Agent_TS():
         self.world_state_size = kwargs['world_state_size']
         self.action_size = kwargs['action_size']
         self.seed = kwargs['random_seed']
+        self.seq_len = kwargs['seq_len']
         self.iter = 0
         self.noise_scale = 1.0
         
         # Actor Network (w/ Target Network)
-        self.actor_local = Actor_TS(self.agent_mh_size, self.agent_inventory_size, self.world_state_size, self.action_size, self.seed).to(device)
-        self.actor_target = Actor_TS(self.agent_mh_size, self.agent_inventory_size, self.world_state_size, self.action_size, self.seed).to(device)
-        self.actor_optimizer = optim.Adam(self.actor_local.parameters(), lr=LR_ACTOR)
+        self.actor_local = Actor_TS(self.agent_mh_size, self.agent_inventory_size,\
+                self.world_state_size, self.action_size, self.seed, self.seq_len).to(device)
+        self.actor_target = Actor_TS(self.agent_mh_size, self.agent_inventory_size,\
+                self.world_state_size, self.action_size, self.seed, self.seq_len).to(device)
+        self.actor_optimizer = optim.Adam([{'params':self.actor_local.cnn.parameters()},\
+                {'params':self.actor_local.pov_lstm.parameters()},\
+                {'params':self.actor_local.normalize_inventory.parameters()},\
+                {'params':self.actor_local.inventory_lstm.parameters()},\
+                {'params':self.actor_local.normalize_mh.parameters()},\
+                {'params':self.actor_local.mh_lstm.parameters()},\
+                {'params':self.actor_local.cnn_mh_inventory_lstm.parameters()},\
+                {'params':self.actor_local.action_modules_lstm['attack'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_lstm['back'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_lstm['camera'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_lstm['craft'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_lstm['equip'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_lstm['forward_'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_lstm['jump'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_lstm['left'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_lstm['nearbyCraft'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_lstm['nearbySmelt'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_lstm['place'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_lstm['right'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_lstm['sneak'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_lstm['sprint'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_1['attack'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_1['back'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_1['camera'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_1['craft'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_1['equip'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_1['forward_'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_1['jump'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_1['left'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_1['nearbyCraft'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_1['nearbySmelt'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_1['place'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_1['right'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_1['sneak'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_1['sprint'].parameters(), 'lr':1e-6},\
+                ], lr=LR_ACTOR)
         #self.actor_optimizer = optim.Adam(self.actor_local.parameters())
         self.actor_scheduler = optim.lr_scheduler.StepLR(self.actor_optimizer, step_size=1, gamma=0.99)
         
@@ -81,15 +119,15 @@ class Agent_TS():
         # Prioritized replay memory
         self.memory = NaivePrioritizedBuffer(BUFFER_SIZE, BATCH_SIZE, self.seed)
 
-        if 'actor_chkpt_file' in kwargs and 'critic_chkpt_file' in kwargs:
+        if 'actor_chkpt_file' in kwargs:
             checkpoint_actor = torch.load(kwargs['actor_chkpt_file'])
-            checkpoint_critic = torch.load(kwargs['critic_chkpt_file'])
+            #checkpoint_critic = torch.load(kwargs['critic_chkpt_file'])
             self.actor_local.load_state_dict(checkpoint_actor)
-            self.critic_local.load_state_dict(checkpoint_critic)
-            checkpoint_actor_t = torch.load(kwargs['actor_chkpt_file_t'])
-            checkpoint_critic_t = torch.load(kwargs['critic_chkpt_file_t'])
-            self.actor_target.load_state_dict(checkpoint_actor_t)
-            self.critic_target.load_state_dict(checkpoint_critic_t)
+            #self.critic_local.load_state_dict(checkpoint_critic)
+            #checkpoint_actor_t = torch.load(kwargs['actor_chkpt_file_t'])
+            #checkpoint_critic_t = torch.load(kwargs['critic_chkpt_file_t'])
+            #self.actor_target.load_state_dict(checkpoint_actor_t)
+            #self.critic_target.load_state_dict(checkpoint_critic_t)
 
     def flatten_action(self, action):
         
@@ -409,27 +447,34 @@ class NaivePrioritizedBuffer(object):
     
     def add(self, experiences):
 
-        if len(experiences[0])<16:
+        if len(experiences[0])<32:
             return
 
-        if (experiences[4].sum() == 0 and random.random()<=0.25):
+        if (experiences[4].sum() < 1 and random.random() <= 0.05):
             return
    
         if len(self.memory) < self.capacity:
-            print("event memory capacity below:")
+            print("event memory capacity below:{}".format(experiences[4].sum().item()))
             self.memory.append(experiences)
         else:
             self.memory[self.pos] = experiences
 
+        self.priorities[self.pos] = experiences[4].sum()+0.1
         self.pos = (self.pos + 1) % self.capacity
     
     def sample(self, beta=0.4):
         
-        #indices = np.random.choice(len(self.memory), self.batch_size, p=probs)
-        indices = np.random.choice(len(self.memory), self.batch_size, False)
-        #indices = np.random.randint(0, len(self.memory), self.batch_size)
-
+        if len(self.memory) == self.capacity:
+            prios = self.priorities
+        else:
+            prios = self.priorities[:self.pos]
         
+        probs  = prios ** self.prob_alpha
+        probs  = prios
+        probs /= probs.sum()
+        
+        #indices = np.random.choice(len(self.memory), self.batch_size, p=probs)
+        indices = np.random.choice(len(self.memory), self.batch_size, False, p=probs)
         experiences = [self.memory[idx] for idx in indices if indices is not None]
         return experiences
     

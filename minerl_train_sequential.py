@@ -227,21 +227,22 @@ def extract_data_from_dict(current_state, action, reward, next_state, done):
     return experiences
  
 
-
+sequence_len = 32
 env = gym.make("MineRLObtainDiamondDense-v0") 
 env.seed(1255)
 obs_a = env.reset()
 
-action_a = deque(maxlen=16)
-mainhand_a = deque(maxlen=16)
-inventory_a = deque(maxlen=16)
-pov_a = deque(maxlen=16)
+action_a = deque(maxlen=sequence_len)
+mainhand_a = deque(maxlen=sequence_len)
+inventory_a = deque(maxlen=sequence_len)
+pov_a = deque(maxlen=sequence_len)
 
 
-action_a.append(env.action_space.sample())
-mainhand_a.append(obs_a['equipped_items']['mainhand'])
-inventory_a.append(obs_a['inventory'])
-pov_a.append(obs_a['pov'])
+#action_a.append(env.action_space.sample())
+for i in range(sequence_len):
+    mainhand_a.append(obs_a['equipped_items']['mainhand'])
+    inventory_a.append(obs_a['inventory'])
+    pov_a.append(obs_a['pov'])
 
 agent_state_s = len(list(obs_a['equipped_items']['mainhand'].values())) + len(list(obs_a['inventory'].values()))
 world_state_s = obs_a['pov'].shape
@@ -255,7 +256,14 @@ data = minerl.data.make(
     'MineRLObtainDiamondDense-v0',
     data_dir="/home/darici/minerl/minerl/data")
 
-agent = Agent_TS(agent_mh_size = 3, agent_inventory_size = 18, world_state_size = [3, 32, 64, 64], action_size=14, random_seed=0)
+#agent = Agent_TS(agent_mh_size = 3, agent_inventory_size = 18, \
+#        world_state_size = [3, 32, 64, 64], action_size=14, \
+#        random_seed=0, seq_len = sequence_len, actor_chkpt_file="checkpoint_actor.pth")
+
+agent = Agent_TS(agent_mh_size = 3, agent_inventory_size = 18, \
+        world_state_size = [3, 32, 64, 64], action_size=14, \
+        random_seed=0, seq_len = sequence_len)
+
 
 
 action_counts = np.zeros((action_s-1, 10), dtype=int)
@@ -286,8 +294,9 @@ pyplot.ion()
 eps_i=0
 done_1=False
 active_reward=0
-for epoch in range(1:10):
-    for current_state, action, reward, next_state, done in data.sarsd_iter(num_epochs=1, max_sequence_len=16, seed=0):
+info={}
+for epoch in range(10):
+    for current_state, action, reward, next_state, done in data.sarsd_iter(num_epochs=1, max_sequence_len=sequence_len, seed=0):
             #print(action['camera'])
             eps_i = eps_i+1
             done = np.delete(done, -1)
@@ -300,7 +309,6 @@ for epoch in range(1:10):
 
             if (done_1==False):
                 with torch.no_grad():
-
                     action_1, action_1_raw, _ , _  = agent.act(mainhand_a, inventory_a, pov_a)
                 obs_1, reward_1, done_1, info = env.step(action_1)
                 if (action_1["forward"] > 1):
@@ -335,9 +343,7 @@ for epoch in range(1:10):
                 obs_1 = env.reset()
                 done_1=False
                 
-
             print(info)
-
             if eps_i % 1000 == 0:
                 print('\nEpisode:{}\t       '.format(eps_i), end="")
                 torch.save(agent.actor_local.state_dict(), 'checkpoint_actor.pth')

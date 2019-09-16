@@ -95,7 +95,7 @@ class Agent_TS():
                 {'params':self.actor_local.action_modules_1['sprint'].parameters(), 'lr':1e-6},\
                 ], lr=LR_ACTOR)
         #self.actor_optimizer = optim.Adam(self.actor_local.parameters())
-        self.actor_scheduler = optim.lr_scheduler.StepLR(self.actor_optimizer, step_size=1, gamma=0.99)
+        self.actor_scheduler = optim.lr_scheduler.StepLR(self.actor_optimizer, step_size=1000, gamma=0.99)
         
         
         # Critic Network (w/ Target Network)

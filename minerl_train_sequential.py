@@ -302,7 +302,7 @@ for epoch in range(10):
             done = np.delete(done, -1)
             experiences = extract_data_from_dict(current_state, action, reward, next_state, done)
             agent.learn_from_players(experiences, writer)
-            
+            agent.actor_scheduler.step() 
             
             if (reward[-1] > 0):
                 print("Training Reward:{}".format(reward[-1]))

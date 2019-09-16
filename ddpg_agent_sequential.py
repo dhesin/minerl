@@ -19,7 +19,7 @@ import torchvision.transforms as transforms
 
 
 BUFFER_SIZE = int(5e4)  # replay buffer size
-BATCH_SIZE = 4         # minibatch size
+BATCH_SIZE = 2         # minibatch size
 GAMMA = 1.0            # discount factor
 TAU = 1e-2              # for soft update of target parameters
 LR_ACTOR = 1e-6         # learning rate of the actor 
@@ -242,7 +242,7 @@ class Agent_TS():
 
         self.actor_local.eval()
         with torch.no_grad():
-            action, action_raw ,_,  _ ,  _ , _ , _ , _, _, _= self.actor_local(s1,s2,s3)
+            action, action_raw ,_,  _ = self.actor_local(s1,s2,s3)
             
         self.actor_local.train()
         
@@ -264,7 +264,7 @@ class Agent_TS():
         for target_param, local_param in zip(target_model.parameters(), local_model.parameters()):
             target_param.data.copy_(tau*local_param.data + (1.0-tau)*target_param.data)
 
-    def get_action_loss(self, writer, gt, onehot_probs, rewards, q_diff_loss=None, q_value_loss=None):
+    def get_action_loss(self, writer, gt, onehot_probs, q_exp, q_current):
 
         onehot_probs = onehot_probs.view(-1,41)
         gt = gt.view(-1,15)
@@ -290,6 +290,8 @@ class Agent_TS():
         right_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,38], gt[:,12])
         sneak_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,39], gt[:,13])
         sprint_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,40], gt[:,14])
+        q_diff_loss = F.mse_loss(q_exp, q_current)
+        q_loss = -q_current.sum()
         
 
         writer.add_scalars('Losses', {"attack":attack_loss, "back":back_loss, \
@@ -306,18 +308,17 @@ class Agent_TS():
         self.actor_optimizer.zero_grad()
         #self.critic_optimizer.zero_grad()
 
-        if q_value_loss is None and q_diff_loss is None:
+        if q_exp is None and q_current is None:
             torch.autograd.backward([attack_loss,back_loss,pitch_loss,yaw_loss,craft_loss,equip_loss,\
                     forward_loss,jump_loss,left_loss,nearby_craft_loss,nearby_smelt_loss,place_loss, \
-                    right_loss,sneak_loss,sprint_loss])
+                    right_loss,sneak_loss, sprint_loss])
         else:
 
-            q_value_loss = q_value_loss.detach()/14
-            writer.add_scalars('Q Values', {"Q Value":q_value_loss, "Q Difference":q_diff_loss}, global_step=self.iter)
+            writer.add_scalars('Q Values', {"Q Value":q_loss, "Q Difference":q_diff_loss}, global_step=self.iter)
 
             torch.autograd.backward([attack_loss,back_loss,pitch_loss,yaw_loss,craft_loss,equip_loss,\
                     forward_loss,jump_loss,left_loss,nearby_craft_loss,nearby_smelt_loss,place_loss, \
-                    right_loss,sneak_loss,sprint_loss, q_diff_loss])
+                    right_loss,sneak_loss, sprint_loss, q_diff_loss, q_loss])
 
 
         #torch.nn.utils.clip_grad_norm_(self.actor_local.parameters(), 1)
@@ -379,29 +380,20 @@ class Agent_TS():
 
         #get next state (from experiences) descriptors and Q_next
         with torch.no_grad():
-            _, _, _, Q_next, _, _, _, wsd_next, mhd_next, inventd_next = \
-                self.actor_local(a_next_states_mh, w_next_states, a_next_states_invent)
+            _, _, _, Q_next = self.actor_local(a_next_states_mh, w_next_states, a_next_states_invent)
 
     
-            # Q_next = Q_next.squeeze().detach()
-            # Q_current_2 = rewards.sum(dim=1) + (gamma * Q_next * (1 - dones[:,-1]))
-            # wsd_next = wsd_next.detach()
-            # mhd_next = mhd_next.detach()
-            # inventd_next = inventd_next.detach()
+            #Q_next = Q_next.detach()
+            print(Q_next.shape)
+            print(rewards.shape)
+            print(dones.shape)
+            Q_current_2 = rewards + (gamma * Q_next * (1 - dones.squeeze()))
 
 
         # predict actions and next state with 
-        _, action_raw, action_logits, Q_current, n_wsd_predict, n_asmhd_predict, n_asinventd_predict, _, _, _ = \
-                self.actor_local(a_states_mh, w_states, a_states_invent)
+        _, action_raw, action_logits, Q_current = self.actor_local(a_states_mh, w_states, a_states_invent)
 
-        #Q_current = Q_current.squeeze(dim=1)
-
-        # calculate loss for actor
-        #loss_1, loss_2 = self.get_action_loss(writer, actions[:,-1,:], action_logits, \
-        #        F.mse_loss(mhd_next, n_asmhd_predict), F.mse_loss(inventd_next, n_asinventd_predict), \
-        #        F.mse_loss(wsd_next, n_wsd_predict), F.mse_loss(Q_current, Q_current_2), -Q_current.mean())
-
-        loss_1, loss_2 = self.get_action_loss(writer, actions, action_logits, rewards)
+        loss_1, loss_2 = self.get_action_loss(writer, actions, action_logits, Q_current_2, Q_current)
 
         print("Actor Losses:{} {}".format(loss_1.item(), loss_2.item()))
         return loss_1, loss_2
@@ -461,6 +453,7 @@ class NaivePrioritizedBuffer(object):
 
         self.priorities[self.pos] = experiences[4].sum()+0.1
         self.pos = (self.pos + 1) % self.capacity
+
     
     def sample(self, beta=0.4):
         

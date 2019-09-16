@@ -251,15 +251,15 @@ class Actor_TS(nn.Module):
 
         actions_raw = torch.cat(actions_raw, dim=2)
         z = torch.cat([combined_state, actions_raw], 2)
-        n_wsd_predict = self.next_state_predict_cnn(z)
-        n_asmhd_predict = self.next_state_predict_agent_mh(z)
-        n_asinventoryd_predict = self.next_state_predict_agent_inventory(z)
-        q_value = self.qvalue(z)
+        #n_wsd_predict = self.next_state_predict_cnn(z)
+        #n_asmhd_predict = self.next_state_predict_agent_mh(z)
+        #n_asinventoryd_predict = self.next_state_predict_agent_inventory(z)
+        q_value = self.qvalue(z).squeeze()
+        print(q_value.shape)
         
         action_logits = torch.cat(action_logits, dim=2)
         
-        return actions, actions_raw, action_logits, q_value, n_wsd_predict, n_asmhd_predict, \
-            n_asinventoryd_predict, world_state, agent_state_mh, agent_state_inventory
+        return actions, actions_raw, action_logits, q_value
 
 
 

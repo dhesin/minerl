@@ -65,20 +65,20 @@ class Agent_TS():
                 {'params':self.actor_local.normalize_mh.parameters()},\
                 {'params':self.actor_local.mh_lstm.parameters()},\
                 {'params':self.actor_local.cnn_mh_inventory_lstm.parameters()},\
-                {'params':self.actor_local.action_modules_lstm['attack'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_lstm['back'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_lstm['attack'].parameters(), 'lr':1e-10},\
+                {'params':self.actor_local.action_modules_lstm['back'].parameters(), 'lr':1e-10},\
                 {'params':self.actor_local.action_modules_lstm['camera'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_lstm['craft'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_lstm['equip'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_lstm['forward_'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_lstm['jump'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_lstm['left'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_lstm['nearbyCraft'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_lstm['nearbySmelt'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_lstm['place'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_lstm['right'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_lstm['sneak'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_lstm['sprint'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_lstm['craft'].parameters(), 'lr':1e-10},\
+                {'params':self.actor_local.action_modules_lstm['equip'].parameters(), 'lr':1e-10},\
+                {'params':self.actor_local.action_modules_lstm['forward_'].parameters(), 'lr':1e-10},\
+                {'params':self.actor_local.action_modules_lstm['jump'].parameters(), 'lr':1e-10},\
+                {'params':self.actor_local.action_modules_lstm['left'].parameters(), 'lr':1e-10},\
+                {'params':self.actor_local.action_modules_lstm['nearbyCraft'].parameters(), 'lr':1e-10},\
+                {'params':self.actor_local.action_modules_lstm['nearbySmelt'].parameters(), 'lr':1e-10},\
+                {'params':self.actor_local.action_modules_lstm['place'].parameters(), 'lr':1e-10},\
+                {'params':self.actor_local.action_modules_lstm['right'].parameters(), 'lr':1e-10},\
+                {'params':self.actor_local.action_modules_lstm['sneak'].parameters(), 'lr':1e-10},\
+                {'params':self.actor_local.action_modules_lstm['sprint'].parameters(), 'lr':1e-10},\
                 {'params':self.actor_local.action_modules_1['attack'].parameters(), 'lr':1e-6},\
                 {'params':self.actor_local.action_modules_1['back'].parameters(), 'lr':1e-6},\
                 {'params':self.actor_local.action_modules_1['camera'].parameters(), 'lr':1e-6},\
@@ -318,7 +318,7 @@ class Agent_TS():
 
             torch.autograd.backward([attack_loss,back_loss,pitch_loss,yaw_loss,craft_loss,equip_loss,\
                     forward_loss,jump_loss,left_loss,nearby_craft_loss,nearby_smelt_loss,place_loss, \
-                    right_loss,sneak_loss, sprint_loss, q_diff_loss, q_loss])
+                    right_loss,sneak_loss, sprint_loss])
 
 
         #torch.nn.utils.clip_grad_norm_(self.actor_local.parameters(), 1)
@@ -327,21 +327,6 @@ class Agent_TS():
         self.actor_optimizer.step()
         #self.critic_optimizer.step()
         
-        #print(attack_loss)
-        #print(back_loss)
-        #print(camera_loss.item())
-        #print(craft_loss)
-        #print(equip_loss)
-        #print(forward_loss)
-        #print(jump_loss)
-        #print(left_loss)
-        #print(nearby_craft_loss)
-        #print(nearby_smelt_loss)
-        #print(place_loss)
-        #print(right_loss)
-        #print(sneak_loss)
-        #print(sprint_loss)
-
         return pitch_loss, yaw_loss
 
 
@@ -380,20 +365,25 @@ class Agent_TS():
 
         #get next state (from experiences) descriptors and Q_next
         with torch.no_grad():
-            _, _, _, Q_next = self.actor_local(a_next_states_mh, w_next_states, a_next_states_invent)
+            _, _, _, Q_next = self.actor_local(a_next_states_mh, w_next_states, a_next_states_invent)    
+            Q_next = Q_next.detach()
 
-    
-            #Q_next = Q_next.detach()
-            print(Q_next.shape)
-            print(rewards.shape)
-            print(dones.shape)
-            Q_current_2 = rewards + (gamma * Q_next * (1 - dones.squeeze()))
+
+        rewards = self.actor_local.normalize_rewards(rewards)
+        for i in range(rewards.shape[0]):
+            rewards[i,:] = rewards[i,:] + rewards[i].sum()
+
+        Q_current_2 = rewards + (gamma * Q_next * (1 - dones.squeeze()))
 
 
         # predict actions and next state with 
         _, action_raw, action_logits, Q_current = self.actor_local(a_states_mh, w_states, a_states_invent)
 
         loss_1, loss_2 = self.get_action_loss(writer, actions, action_logits, Q_current_2, Q_current)
+
+
+        # ----------------------- update target networks ----------------------- #
+        #self.soft_update(self.actor_local, self.actor_target, TAU)
 
         print("Actor Losses:{} {}".format(loss_1.item(), loss_2.item()))
         return loss_1, loss_2

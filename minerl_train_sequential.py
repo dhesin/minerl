@@ -229,7 +229,7 @@ def extract_data_from_dict(current_state, action, reward, next_state, done):
 
 sequence_len = 32
 env = gym.make("MineRLObtainDiamondDense-v0") 
-env.seed(1255)
+env.seed(125)
 obs_a = env.reset()
 
 action_a = deque(maxlen=sequence_len)
@@ -254,7 +254,7 @@ writer = SummaryWriter()
 
 data = minerl.data.make(
     'MineRLObtainDiamondDense-v0',
-    data_dir="/home/desin/minerl/data")
+    data_dir="/home/darici/minerl/minerl/data")
 
 #agent = Agent_TS(agent_mh_size = 3, agent_inventory_size = 18, \
 #        world_state_size = [3, 32, 64, 64], action_size=14, \

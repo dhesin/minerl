@@ -47,30 +47,30 @@ class Actor_TS(nn.Module):
         self.pov_lstm = torch.nn.LSTM(growth_rate, 60, num_layers=2, batch_first=True, bias=False)  
 
         self.normalize_inventory = nn.BatchNorm1d(self.seq_len)
-        self.inventory_lstm = torch.nn.LSTM(agent_inventory_size, 20, num_layers=2, batch_first=True, bias=False)  
+        self.inventory_lstm = torch.nn.LSTM(agent_inventory_size, 60, num_layers=2, batch_first=True, bias=False)  
         
         self.normalize_mh = nn.BatchNorm1d(self.seq_len)
         self.mh_lstm = torch.nn.LSTM(agent_mh_size, 20, num_layers=2, batch_first=True, bias=False)  
 
  
-        self.cnn_mh_inventory_lstm = torch.nn.LSTM(100, 40, num_layers=2, batch_first=True, bias=False)  
+        self.cnn_mh_inventory_lstm = torch.nn.LSTM(140, 80, num_layers=2, batch_first=True, bias=False)  
               
         
         self.action_modules_lstm = nn.ModuleDict({
-            'attack': nn.LSTM(40,1, num_layers=2, batch_first=True, bias=False),
-            'back': nn.LSTM(40,1, num_layers=2, batch_first=True, bias=False),
-            'camera': nn.LSTM(40,2, num_layers=2, batch_first=True, bias=False),
-            'craft': nn.LSTM(40,5, num_layers=2, batch_first=True, bias=False),
-            'equip': nn.LSTM(40,8, num_layers=2, batch_first=True, bias=False),
-            'forward_': nn.LSTM(40,1, num_layers=2, batch_first=True, bias=False),
-            'jump': nn.LSTM(40,1, num_layers=2, batch_first=True, bias=False),
-            'left': nn.LSTM(40,1, num_layers=2, batch_first=True, bias=False),
-            'nearbyCraft': nn.LSTM(40,8, num_layers=2, batch_first=True, bias=False),
-            'nearbySmelt': nn.LSTM(40,3, num_layers=2, batch_first=True, bias=False),
-            'place': nn.LSTM(40,7, num_layers=2, batch_first=True, bias=False),
-            'right': nn.LSTM(40,1, num_layers=2, batch_first=True, bias=False),
-            'sneak': nn.LSTM(40,1, num_layers=2, batch_first=True, bias=False),
-            'sprint': nn.LSTM(40,1, num_layers=2, batch_first=True, bias=False)
+            'attack': nn.LSTM(80,1, num_layers=2, batch_first=True, bias=False),
+            'back': nn.LSTM(80,1, num_layers=2, batch_first=True, bias=False),
+            'camera': nn.LSTM(80,2, num_layers=2, batch_first=True, bias=False),
+            'craft': nn.LSTM(80,5, num_layers=2, batch_first=True, bias=False),
+            'equip': nn.LSTM(80,8, num_layers=2, batch_first=True, bias=False),
+            'forward_': nn.LSTM(80,1, num_layers=2, batch_first=True, bias=False),
+            'jump': nn.LSTM(80,1, num_layers=2, batch_first=True, bias=False),
+            'left': nn.LSTM(80,1, num_layers=2, batch_first=True, bias=False),
+            'nearbyCraft': nn.LSTM(80,8, num_layers=2, batch_first=True, bias=False),
+            'nearbySmelt': nn.LSTM(80,3, num_layers=2, batch_first=True, bias=False),
+            'place': nn.LSTM(80,7, num_layers=2, batch_first=True, bias=False),
+            'right': nn.LSTM(80,1, num_layers=2, batch_first=True, bias=False),
+            'sneak': nn.LSTM(80,1, num_layers=2, batch_first=True, bias=False),
+            'sprint': nn.LSTM(80,1, num_layers=2, batch_first=True, bias=False)
         })
  
         self.action_modules_1 = nn.ModuleDict({
@@ -91,49 +91,57 @@ class Actor_TS(nn.Module):
         })
 
         self.activation_modules = nn.ModuleDict({
-            'attack': nn.Softplus(),
-            'back': nn.Softplus(),
+            'attack': nn.Identity(),
+            'back': nn.Identity(),
             'camera': nn.Tanhshrink(),
-            'craft': nn.Softplus(),
-            'equip': nn.Softplus(),
-            'forward_': nn.Softplus(),
-            'jump': nn.Softplus(),
-            'left': nn.Softplus(),
-            'nearbyCraft': nn.Softplus(),
-            'nearbySmelt': nn.Softplus(),
-            'place': nn.Softplus(),
-            'right': nn.Softplus(),
-            'sneak': nn.Softplus(),
-            'sprint': nn.Softplus(),
+            'craft': nn.Identity(),
+            'equip': nn.Identity(),
+            'forward_': nn.Identity(),
+            'jump': nn.Identity(),
+            'left': nn.Identity(),
+            'nearbyCraft': nn.Identity(),
+            'nearbySmelt': nn.Identity(),
+            'place': nn.Identity(),
+            'right': nn.Identity(),
+            'sneak': nn.Identity(),
+            'sprint': nn.Identity(),
         })
  
+        self.next_state_predict_cnn_lstm = torch.nn.LSTM(80+action_size+1, growth_rate, num_layers=2, batch_first=True, bias=False)  
         self.next_state_predict_cnn = nn.Sequential()
-        self.next_state_predict_cnn.add_module('norm', nn.LayerNorm(40+action_size+1))
-        self.next_state_predict_cnn.add_module('linear1', nn.Linear(40+action_size+1, 100, bias=False))
+        self.next_state_predict_cnn.add_module('norm', nn.LayerNorm(80+action_size+1))
+        self.next_state_predict_cnn.add_module('linear1', nn.Linear(80+action_size+1, 100, bias=False))
         self.next_state_predict_cnn.add_module('relu1', nn.ReLU(inplace=True))
         self.next_state_predict_cnn.add_module('linear2', nn.Linear(100, 20, bias=False))
         self.next_state_predict_cnn.add_module('relu2', nn.ReLU(inplace=True))
  
         self.next_state_predict_agent_mh = nn.Sequential()
-        self.next_state_predict_agent_mh.add_module('norm', nn.LayerNorm(40+action_size+1))
-        self.next_state_predict_agent_mh.add_module('linear1', nn.Linear(40+action_size+1, 100, bias=False))
+        self.next_state_predict_agent_mh.add_module('norm', nn.LayerNorm(80+action_size+1))
+        self.next_state_predict_agent_mh.add_module('linear1', nn.Linear(80+action_size+1, 100, bias=False))
         self.next_state_predict_agent_mh.add_module('relu1', nn.ReLU(inplace=True))
         self.next_state_predict_agent_mh.add_module('linear2', nn.Linear(100, 20, bias=False))
         self.next_state_predict_agent_mh.add_module('relu2', nn.ReLU(inplace=True))
 
         self.next_state_predict_agent_inventory = nn.Sequential()
-        self.next_state_predict_agent_inventory.add_module('norm', nn.LayerNorm(40+action_size+1))
-        self.next_state_predict_agent_inventory.add_module('linear1', nn.Linear(40+action_size+1, 100, bias=False))
+        self.next_state_predict_agent_inventory.add_module('norm', nn.LayerNorm(80+action_size+1))
+        self.next_state_predict_agent_inventory.add_module('linear1', nn.Linear(80+action_size+1, 100, bias=False))
         self.next_state_predict_agent_inventory.add_module('relu1', nn.ReLU(inplace=True))
         self.next_state_predict_agent_inventory.add_module('linear2', nn.Linear(100, 20, bias=False))
         self.next_state_predict_agent_inventory.add_module('relu2', nn.ReLU(inplace=True))
        
+        self.normalize_rewards = nn.BatchNorm1d(self.seq_len)
+
+        self.normalize_q_value = nn.BatchNorm1d(self.seq_len)
+        self.qvalue_lstm = torch.nn.LSTM(80+action_size+1, 1, num_layers=2, batch_first=True, bias=False)  
+        self.qvalue_lstm_2 = torch.nn.LSTM(80+action_size+1, 1, num_layers=2, batch_first=True, bias=False)  
+
         self.qvalue = nn.Sequential()
-        self.qvalue.add_module('norm', nn.LayerNorm(40+action_size+1))
-        self.qvalue.add_module('linear1', nn.Linear(40+action_size+1, 100, bias=False))
+        self.qvalue.add_module('norm', nn.LayerNorm(80+action_size+1))
+        self.qvalue.add_module('linear1', nn.Linear(80+action_size+1, 100, bias=False))
         self.qvalue.add_module('relu1', nn.ReLU(inplace=True))
         self.qvalue.add_module('linear2', nn.Linear(100, 1, bias=False))
         self.qvalue.add_module('relu2', nn.ReLU(inplace=True))
+
 
 
         self.reset_parameters()
@@ -254,8 +262,10 @@ class Actor_TS(nn.Module):
         #n_wsd_predict = self.next_state_predict_cnn(z)
         #n_asmhd_predict = self.next_state_predict_agent_mh(z)
         #n_asinventoryd_predict = self.next_state_predict_agent_inventory(z)
-        q_value = self.qvalue(z).squeeze()
-        print(q_value.shape)
+        z = self.normalize_q_value(z)
+        q_value, (hidden, cell) = self.qvalue_lstm(z)
+        #q_value, (hidden, cell) = self.qvalue_lstm_2(q_value)
+        q_value = q_value.squeeze()
         
         action_logits = torch.cat(action_logits, dim=2)
         

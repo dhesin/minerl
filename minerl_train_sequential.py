@@ -12,12 +12,15 @@ from matplotlib.pyplot import imshow
 import matplotlib.pyplot as pyplot
 import numpy as np
 from PIL import Image
-from ddpg_agent import Agent
+
 #%matplotlib inline
+
+BUFFER_SIZE = int(5e2)  # replay buffer size
 
 import ddpg_agent_sequential
 reload(ddpg_agent_sequential)
 from ddpg_agent_sequential import Agent_TS
+
 
 #logging.basicConfig(level=logging.DEBUG)
 #pil_img = transforms.ToPILImage()(pov)
@@ -227,26 +230,7 @@ def extract_data_from_dict(current_state, action, reward, next_state, done):
     return experiences
  
 
-sequence_len = 32
-env = gym.make("MineRLObtainDiamondDense-v0") 
-env.seed(125)
-obs_a = env.reset()
 
-action_a = deque(maxlen=sequence_len)
-mainhand_a = deque(maxlen=sequence_len)
-inventory_a = deque(maxlen=sequence_len)
-pov_a = deque(maxlen=sequence_len)
-
-
-#action_a.append(env.action_space.sample())
-for i in range(sequence_len):
-    mainhand_a.append(obs_a['equipped_items']['mainhand'])
-    inventory_a.append(obs_a['inventory'])
-    pov_a.append(obs_a['pov'])
-
-agent_state_s = len(list(obs_a['equipped_items']['mainhand'].values())) + len(list(obs_a['inventory'].values()))
-world_state_s = obs_a['pov'].shape
-action_s = len(list(env.action_space.sample().values()))
 
 
 writer = SummaryWriter()
@@ -254,8 +238,9 @@ writer = SummaryWriter()
 
 data = minerl.data.make(
     'MineRLObtainDiamondDense-v0',
-    data_dir="/home/darici/minerl/minerl/data")
+    data_dir="/home/desin/minerl/data")
 
+sequence_len = 32
 #agent = Agent_TS(agent_mh_size = 3, agent_inventory_size = 18, \
 #        world_state_size = [3, 32, 64, 64], action_size=14, \
 #        random_seed=0, seq_len = sequence_len, actor_chkpt_file="checkpoint_actor.pth")
@@ -266,7 +251,7 @@ agent = Agent_TS(agent_mh_size = 3, agent_inventory_size = 18, \
 
 
 
-action_counts = np.zeros((action_s-1, 10), dtype=int)
+#action_counts = np.zeros((action_s-1, 10), dtype=int)
 action_names = ("attack", "back", "craft", "equip",
                      "forward", "jump", "left", "nearbyCraft", "nearbySmelt", 
                      "place", "right", "sneak", "sprint")
@@ -288,6 +273,62 @@ pyplot.ion()
 #pyplot.ylim(-50,50)
 #fig_2 = pyplot.figure(num=2)
 #pyplot.ylim(0,10)
+
+
+
+# Put data into memory
+eps_i=0
+for epoch in range(10):
+    for current_state, action, reward, next_state, done in data.sarsd_iter(num_epochs=1, max_sequence_len=sequence_len, seed=0):
+        eps_i = eps_i+1
+        done = np.delete(done, -1)
+        experiences = extract_data_from_dict(current_state, action, reward, next_state, done)
+        agent.memory.add(experiences)
+        if (len(agent.memory.memory) >= BUFFER_SIZE):
+            break
+    if (len(agent.memory.memory) >= BUFFER_SIZE):
+        break
+
+
+# Learn without the environment
+eps_i=0
+while True:
+    #print(action['camera'])
+    eps_i = eps_i+1
+    agent.learn_from_players_2(writer)
+    print("stepping")
+    agent.actor_scheduler.step() 
+    
+    if eps_i % 50 == 0:
+        print('\nEpisode:{}\t       '.format(eps_i), end="")
+        torch.save(agent.actor_local.state_dict(), 'checkpoint_actor.pth')
+    if eps_i >= 5000:
+        break
+
+print("DONE")
+exit()
+
+
+env = gym.make("MineRLObtainDiamondDense-v0") 
+env.seed(125)
+obs_a = env.reset()
+
+action_a = deque(maxlen=sequence_len)
+mainhand_a = deque(maxlen=sequence_len)
+inventory_a = deque(maxlen=sequence_len)
+pov_a = deque(maxlen=sequence_len)
+
+
+#action_a.append(env.action_space.sample())
+for i in range(sequence_len):
+    mainhand_a.append(obs_a['equipped_items']['mainhand'])
+    inventory_a.append(obs_a['inventory'])
+    pov_a.append(obs_a['pov'])
+
+agent_state_s = len(list(obs_a['equipped_items']['mainhand'].values())) + len(list(obs_a['inventory'].values()))
+world_state_s = obs_a['pov'].shape
+action_s = len(list(env.action_space.sample().values()))
+
 
 
 # Iterate through a single epoch gathering sequences of at most 32 steps

@@ -17,7 +17,6 @@ import torch.nn.functional as F
 import torch.optim as optim
 import torchvision.transforms as transforms
 
-
 BUFFER_SIZE = int(5e4)  # replay buffer size
 BATCH_SIZE = 2         # minibatch size
 GAMMA = 1.0            # discount factor
@@ -225,6 +224,21 @@ class Agent_TS():
 
         #self.actor_scheduler.step()
         #self.critic_scheduler.step()
+
+    def learn_from_players_2(self, writer):
+        """Save experience in replay memory, and use random sample from buffer to learn."""            
+            
+        #(states, states_2, actions, rewards, next_states, next_states_2, dones) = experiences      
+        self.iter = self.iter+1    
+        experiences = self.memory.sample()  
+        loss_1, loss_2 = self.learn_2(experiences, GAMMA, writer)
+        
+        self.iter = self.iter+1
+        experiences = self.memory.sample()
+        loss_1, loss_2 = self.learn_2(experiences, GAMMA, writer)
+
+        #self.actor_scheduler.step()
+        #self.critic_scheduler.step()        
 
     
     def act(self, mainhand, inventory, pov,  add_noise=True, noise_scale=1.0):

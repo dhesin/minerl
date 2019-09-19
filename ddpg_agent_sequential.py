@@ -18,10 +18,10 @@ import torch.optim as optim
 import torchvision.transforms as transforms
 
 BUFFER_SIZE = int(5e4)  # replay buffer size
-BATCH_SIZE = 2         # minibatch size
+BATCH_SIZE = 4         # minibatch size
 GAMMA = 1.0            # discount factor
-TAU = 1e-2              # for soft update of target parameters
-LR_ACTOR = 1e-6         # learning rate of the actor 
+TAU = 1e-8              # for soft update of target parameters
+LR_ACTOR = 1e-5         # learning rate of the actor 
 LR_CRITIC = 1e-4        # learning rate of the critic
 WEIGHT_DECAY = 0.000   # L2 weight decay
 
@@ -30,6 +30,8 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 equipments = {"none":1, 'air':2, 'wooden_axe':3, 'wooden_pickaxe':4, 
               'stone_axe':5, 'stone_pickaxe':6, 'iron_axe':7, 'iron_pickaxe':8}
 
+action_names = ['attack', 'back', 'pitch', 'yaw', 'craft', 'equip', 'forward', 'jump',\
+        'left', 'nearbyCraft', 'nearbySmelt', 'place', 'right', 'sneak', 'sprint']
 
 
     
@@ -50,6 +52,7 @@ class Agent_TS():
         self.seed = kwargs['random_seed']
         self.seq_len = kwargs['seq_len']
         self.iter = 0
+        self.iter_2 = 0
         self.noise_scale = 1.0
         
         # Actor Network (w/ Target Network)
@@ -64,34 +67,34 @@ class Agent_TS():
                 {'params':self.actor_local.normalize_mh.parameters()},\
                 {'params':self.actor_local.mh_lstm.parameters()},\
                 {'params':self.actor_local.cnn_mh_inventory_lstm.parameters()},\
-                {'params':self.actor_local.action_modules_lstm['attack'].parameters(), 'lr':1e-10},\
-                {'params':self.actor_local.action_modules_lstm['back'].parameters(), 'lr':1e-10},\
-                {'params':self.actor_local.action_modules_lstm['camera'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_lstm['craft'].parameters(), 'lr':1e-10},\
-                {'params':self.actor_local.action_modules_lstm['equip'].parameters(), 'lr':1e-10},\
-                {'params':self.actor_local.action_modules_lstm['forward_'].parameters(), 'lr':1e-10},\
-                {'params':self.actor_local.action_modules_lstm['jump'].parameters(), 'lr':1e-10},\
-                {'params':self.actor_local.action_modules_lstm['left'].parameters(), 'lr':1e-10},\
-                {'params':self.actor_local.action_modules_lstm['nearbyCraft'].parameters(), 'lr':1e-10},\
-                {'params':self.actor_local.action_modules_lstm['nearbySmelt'].parameters(), 'lr':1e-10},\
-                {'params':self.actor_local.action_modules_lstm['place'].parameters(), 'lr':1e-10},\
-                {'params':self.actor_local.action_modules_lstm['right'].parameters(), 'lr':1e-10},\
-                {'params':self.actor_local.action_modules_lstm['sneak'].parameters(), 'lr':1e-10},\
-                {'params':self.actor_local.action_modules_lstm['sprint'].parameters(), 'lr':1e-10},\
-                {'params':self.actor_local.action_modules_1['attack'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_1['back'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_1['camera'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_1['craft'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_1['equip'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_1['forward_'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_1['jump'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_1['left'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_1['nearbyCraft'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_1['nearbySmelt'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_1['place'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_1['right'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_1['sneak'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_1['sprint'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_lstm['attack'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_lstm['back'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_lstm['camera'].parameters(), 'lr':1e-4},\
+                {'params':self.actor_local.action_modules_lstm['craft'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_lstm['equip'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_lstm['forward_'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_lstm['jump'].parameters(), 'lr':1e-4},\
+                {'params':self.actor_local.action_modules_lstm['left'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_lstm['nearbyCraft'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_lstm['nearbySmelt'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_lstm['place'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_lstm['right'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_lstm['sneak'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_lstm['sprint'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_1['attack'].parameters(), 'lr':1e-7},\
+                {'params':self.actor_local.action_modules_1['back'].parameters(), 'lr':1e-7},\
+                {'params':self.actor_local.action_modules_1['camera'].parameters(), 'lr':1e-7},\
+                {'params':self.actor_local.action_modules_1['craft'].parameters(), 'lr':1e-7},\
+                {'params':self.actor_local.action_modules_1['equip'].parameters(), 'lr':1e-7},\
+                {'params':self.actor_local.action_modules_1['forward_'].parameters(), 'lr':1e-8},\
+                {'params':self.actor_local.action_modules_1['jump'].parameters(), 'lr':1e-7},
+                {'params':self.actor_local.action_modules_1['left'].parameters(), 'lr':1e-7},\
+                {'params':self.actor_local.action_modules_1['nearbyCraft'].parameters(), 'lr':1e-7},\
+                {'params':self.actor_local.action_modules_1['nearbySmelt'].parameters(), 'lr':1e-7},\
+                {'params':self.actor_local.action_modules_1['place'].parameters(), 'lr':1e-7},\
+                {'params':self.actor_local.action_modules_1['right'].parameters(), 'lr':1e-7},\
+                {'params':self.actor_local.action_modules_1['sneak'].parameters(), 'lr':1e-7},\
+                {'params':self.actor_local.action_modules_1['sprint'].parameters(), 'lr':1e-7},\
                 ], lr=LR_ACTOR)
         #self.actor_optimizer = optim.Adam(self.actor_local.parameters())
         self.actor_scheduler = optim.lr_scheduler.StepLR(self.actor_optimizer, step_size=1000, gamma=0.99)
@@ -226,20 +229,11 @@ class Agent_TS():
         #self.critic_scheduler.step()
 
     def learn_from_players_2(self, writer):
-        """Save experience in replay memory, and use random sample from buffer to learn."""            
             
-        #(states, states_2, actions, rewards, next_states, next_states_2, dones) = experiences      
         self.iter = self.iter+1    
         experiences = self.memory.sample()  
         loss_1, loss_2 = self.learn_2(experiences, GAMMA, writer)
         
-        self.iter = self.iter+1
-        experiences = self.memory.sample()
-        loss_1, loss_2 = self.learn_2(experiences, GAMMA, writer)
-
-        #self.actor_scheduler.step()
-        #self.critic_scheduler.step()        
-
     
     def act(self, mainhand, inventory, pov,  add_noise=True, noise_scale=1.0):
         """Returns actions for given state as per current policy."""
@@ -278,8 +272,11 @@ class Agent_TS():
         for target_param, local_param in zip(target_model.parameters(), local_model.parameters()):
             target_param.data.copy_(tau*local_param.data + (1.0-tau)*target_param.data)
 
-    def get_action_loss(self, writer, gt, onehot_probs, q_exp, q_current):
+    def get_action_loss(self, writer, gt, onehot_probs, q_exp, q_current, rewards):
 
+        
+        onehot_probs = onehot_probs[:,-1,:]
+        gt = gt[:,-1,:]
         onehot_probs = onehot_probs.view(-1,41)
         gt = gt.view(-1,15)
 
@@ -288,22 +285,24 @@ class Agent_TS():
         #    rewards[i,:] = rewards[i,:]+b_r[i]
         #rewards = rewards.view(-1)
 
+        #print(rewards)
 
-        attack_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,0], gt[:,0])
-        back_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,1], gt[:,1])
-        pitch_loss = F.mse_loss(onehot_probs[:,2], gt[:,2])
-        yaw_loss = F.mse_loss(onehot_probs[:,3], gt[:,3])
-        craft_loss = F.cross_entropy(onehot_probs[:,4:9], gt[:,4].long())
-        equip_loss = F.cross_entropy(onehot_probs[:,9:17], gt[:,5].long())
-        forward_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,17], gt[:,6])
-        jump_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,18], gt[:,7])
-        left_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,19], gt[:,8])
-        nearby_craft_loss = F.cross_entropy(onehot_probs[:,20:28], gt[:,9].long())
-        nearby_smelt_loss = F.cross_entropy(onehot_probs[:,28:31], gt[:,10].long())
-        place_loss = F.cross_entropy(onehot_probs[:,31:38], gt[:,11].long())
-        right_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,38], gt[:,12])
-        sneak_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,39], gt[:,13])
-        sprint_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,40], gt[:,14])
+
+        attack_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,0], gt[:,0])#-rewards[:,0].sum()
+        back_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,1], gt[:,1])#-rewards[:,1].sum()
+        pitch_loss = F.mse_loss(onehot_probs[:,2], gt[:,2])#-rewards[:,2].sum()
+        yaw_loss = F.mse_loss(onehot_probs[:,3], gt[:,3])#-rewards[:,3].sum()
+        craft_loss = F.cross_entropy(onehot_probs[:,4:9], gt[:,4].long())#-rewards[:,4].sum()
+        equip_loss = F.cross_entropy(onehot_probs[:,9:17], gt[:,5].long())#-rewards[:,5].sum()
+        forward_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,17], gt[:,6])#-rewards[:,6].sum()
+        jump_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,18], gt[:,7])#-rewards[:,7].sum()
+        left_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,19], gt[:,8])#-rewards[:,8].sum()
+        nearby_craft_loss = F.cross_entropy(onehot_probs[:,20:28], gt[:,9].long())#-rewards[:,9].sum()
+        nearby_smelt_loss = F.cross_entropy(onehot_probs[:,28:31], gt[:,10].long())#-rewards[:,10].sum()
+        place_loss = F.cross_entropy(onehot_probs[:,31:38], gt[:,11].long())#-rewards[:,11].sum()
+        right_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,38], gt[:,12])#-rewards[:,12].sum()
+        sneak_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,39], gt[:,13])#-rewards[:,13].sum()
+        sprint_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,40], gt[:,14])#-rewards[:,14].sum()
         q_diff_loss = F.mse_loss(q_exp, q_current)
         q_loss = -q_current.sum()
         
@@ -328,9 +327,9 @@ class Agent_TS():
                     right_loss,sneak_loss, sprint_loss])
         else:
 
-            writer.add_scalars('Q Values', {"Q Value":q_loss, "Q Difference":q_diff_loss}, global_step=self.iter)
+            #writer.add_scalars('Q Values_', {"Q Value":q_loss, "Q Difference":q_diff_loss}, global_step=self.iter)
 
-            torch.autograd.backward([attack_loss,back_loss,pitch_loss,yaw_loss,craft_loss,equip_loss,\
+            torch.autograd.backward([attack_loss,back_loss, yaw_loss,craft_loss,equip_loss,\
                     forward_loss,jump_loss,left_loss,nearby_craft_loss,nearby_smelt_loss,place_loss, \
                     right_loss,sneak_loss, sprint_loss])
 
@@ -393,7 +392,14 @@ class Agent_TS():
         # predict actions and next state with 
         _, action_raw, action_logits, Q_current = self.actor_local(a_states_mh, w_states, a_states_invent)
 
-        loss_1, loss_2 = self.get_action_loss(writer, actions, action_logits, Q_current_2, Q_current)
+        loss_1, loss_2 = self.get_action_loss(writer, actions, action_logits, Q_current_2, Q_current, rewards)
+
+
+        for i in range(action_raw.shape[0]):
+            for k in range(action_raw.shape[2]):
+                label = "Action_" + action_names[k] + "_"
+                writer.add_scalars(label, {"GT":actions[i,-1,k], "Run":action_raw[i,-1,k]}, global_step=self.iter_2)
+            self.iter_2 = self.iter_2+1
 
 
         # ----------------------- update target networks ----------------------- #
@@ -446,8 +452,8 @@ class NaivePrioritizedBuffer(object):
         if len(experiences[0])<32:
             return
 
-        if (experiences[4].sum() < 1 and random.random() <= 0.05):
-            return
+        #if (experiences[4].sum() < 1 and random.random() <= 0.05):
+        #    return
    
         if len(self.memory) < self.capacity:
             print("event memory capacity below:{}".format(experiences[4].sum().item()))
@@ -455,7 +461,7 @@ class NaivePrioritizedBuffer(object):
         else:
             self.memory[self.pos] = experiences
 
-        self.priorities[self.pos] = experiences[4].sum()+0.1
+        #self.priorities[self.pos] = self.priorities[self.pos] + experiences[4].sum()+0.1
         self.pos = (self.pos + 1) % self.capacity
 
     
@@ -475,13 +481,28 @@ class NaivePrioritizedBuffer(object):
         experiences = [self.memory[idx] for idx in indices if indices is not None]
         return experiences
     
-    def update_priorities(self, batch_indices, batch_priorities):
-        
-        #print(batch_indices)
-        #print(batch_priorities)
-        
-        for idx, prio in zip(batch_indices, batch_priorities):
-            self.priorities[idx] = prio
+    def update_priorities(self):
+
+        action_priorities = np.zeros(len(self.memory[0][3][0]))
+
+        print(action_priorities.shape)
+
+        for i in range(len(self.memory)):
+            actions = self.memory[i][3]
+            actions_len = len(actions[0])
+            for j in range(actions_len) :
+                if np.any(actions[:,j]):
+                    action_priorities[j] = action_priorities[j]+1
+
+        action_priorities = len(self.memory)/(action_priorities+0.1)
+
+        for i in range(len(self.memory)):
+            actions = self.memory[i][3]
+            actions_len = len(actions[0])
+            for j in range(actions_len):
+                if (np.any(actions[:,j])):
+                    self.priorities[i] = self.priorities[i] + action_priorities[j]
+            #print(self.priorities[i])
 
     def __len__(self):
         return len(self.memory)        

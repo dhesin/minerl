@@ -8,6 +8,8 @@ import torchvision.transforms as transforms
 from matplotlib.pyplot import imshow
 import matplotlib.pyplot as pyplot
 
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
 def hidden_init(layer):
     fan_in = layer.weight.data.size()[0]
     lim = 1. / np.sqrt(fan_in)
@@ -55,56 +57,60 @@ class Actor_TS(nn.Module):
  
         self.cnn_mh_inventory_lstm = torch.nn.LSTM(140, 80, num_layers=2, batch_first=True, bias=False)  
               
-        
+        self.normalize_action_inputs = nn.LayerNorm(80)
         self.action_modules_lstm = nn.ModuleDict({
-            'attack': nn.LSTM(80,1, num_layers=2, batch_first=True, bias=False),
-            'back': nn.LSTM(80,1, num_layers=2, batch_first=True, bias=False),
-            'camera': nn.LSTM(80,2, num_layers=2, batch_first=True, bias=False),
-            'craft': nn.LSTM(80,5, num_layers=2, batch_first=True, bias=False),
-            'equip': nn.LSTM(80,8, num_layers=2, batch_first=True, bias=False),
-            'forward_': nn.LSTM(80,1, num_layers=2, batch_first=True, bias=False),
-            'jump': nn.LSTM(80,1, num_layers=2, batch_first=True, bias=False),
-            'left': nn.LSTM(80,1, num_layers=2, batch_first=True, bias=False),
-            'nearbyCraft': nn.LSTM(80,8, num_layers=2, batch_first=True, bias=False),
-            'nearbySmelt': nn.LSTM(80,3, num_layers=2, batch_first=True, bias=False),
-            'place': nn.LSTM(80,7, num_layers=2, batch_first=True, bias=False),
-            'right': nn.LSTM(80,1, num_layers=2, batch_first=True, bias=False),
-            'sneak': nn.LSTM(80,1, num_layers=2, batch_first=True, bias=False),
-            'sprint': nn.LSTM(80,1, num_layers=2, batch_first=True, bias=False)
+            'attack': nn.LSTM(80,1, num_layers=2, batch_first=True, bias=True),
+            'back': nn.LSTM(80,1, num_layers=2, batch_first=True, bias=True),
+            'camera': nn.LSTM(80,2, num_layers=2, batch_first=True, bias=True),
+            'craft': nn.LSTM(80,5, num_layers=2, batch_first=True, bias=True),
+            'equip': nn.LSTM(80,8, num_layers=2, batch_first=True, bias=True),
+            'forward_': nn.LSTM(80,1, num_layers=2, batch_first=True, bias=True),
+            'jump': nn.LSTM(80,1, num_layers=2, batch_first=True, bias=True),
+            'left': nn.LSTM(80,1, num_layers=2, batch_first=True, bias=True),
+            'nearbyCraft': nn.LSTM(80,8, num_layers=2, batch_first=True, bias=True),
+            'nearbySmelt': nn.LSTM(80,3, num_layers=2, batch_first=True, bias=True),
+            'place': nn.LSTM(80,7, num_layers=2, batch_first=True, bias=True),
+            'right': nn.LSTM(80,1, num_layers=2, batch_first=True, bias=True),
+            'sneak': nn.LSTM(80,1, num_layers=2, batch_first=True, bias=True),
+            'sprint': nn.LSTM(80,1, num_layers=2, batch_first=True, bias=True)
         })
  
         self.action_modules_1 = nn.ModuleDict({
-            'attack': nn.Linear(40,1, bias=False),
-            'back': nn.Linear(40,1, bias=False),
-            'camera': nn.Linear(40,2, bias=False),
-            'craft': nn.Linear(40,5, bias=False),
-            'equip': nn.Linear(40,8, bias=False),
-            'forward_': nn.Linear(40,1, bias=False),
-            'jump': nn.Linear(40,1, bias=False),
-            'left': nn.Linear(40,1, bias=False),
-            'nearbyCraft': nn.Linear(40,8, bias=False),
-            'nearbySmelt': nn.Linear(40,3, bias=False),
-            'place': nn.Linear(40,7, bias=False),
-            'right': nn.Linear(40,1, bias=False),
-            'sneak': nn.Linear(40,1, bias=False),
-            'sprint': nn.Linear(40,1, bias=False)
+            'attack': nn.Linear(80,1, bias=True),
+            'back': nn.Linear(80,1, bias=True),
+            'camera': nn.Linear(80,2, bias=True),
+            'craft': nn.Linear(80,5, bias=True),
+            'equip': nn.Linear(80,8, bias=True),
+            'forward_': nn.Linear(80,1, bias=True),
+            'jump': nn.Linear(80,1, bias=True),
+            'left': nn.Linear(80,1, bias=True),
+            'nearbyCraft': nn.Linear(80,8, bias=True),
+            'nearbySmelt': nn.Linear(80,3, bias=True),
+            'place': nn.Linear(80,7, bias=True),
+            'right': nn.Linear(80,1, bias=True),
+            'sneak': nn.Linear(80,1, bias=True),
+            'sprint': nn.Linear(80,1, bias=True)
         })
 
+        self.action_modules_1_output_size = {'attack':1, 'back':1, 'camera':2, 'craft':5,\
+            'equip':8, 'forward_':1, 'jump':1, 'left':1, 'nearbyCraft':8, 'nearbySmelt':3,\
+            'place':7, 'right':1, 'sneak':1, 'sprint':1}       
+
         self.activation_modules = nn.ModuleDict({
-            'attack': nn.Identity(),
-            'back': nn.Identity(),
-            'camera': nn.Tanhshrink(),
-            'craft': nn.Identity(),
-            'equip': nn.Identity(),
-            'forward_': nn.Identity(),
-            'jump': nn.Identity(),
-            'left': nn.Identity(),
-            'nearbyCraft': nn.Identity(),
-            'nearbySmelt': nn.Identity(),
-            'place': nn.Identity(),
-            'right': nn.Identity(),
-            'sneak': nn.Identity(),
-            'sprint': nn.Identity(),
+            'attack': nn.Softsign(),
+            'back': nn.Softsign(),
+            'camera': nn.Softsign(),
+            'craft': nn.Softsign(),
+            'equip': nn.Softsign(),
+            'forward_': nn.Softsign(),
+            'jump': nn.Softsign(),
+            'left': nn.Softsign(),
+            'nearbyCraft': nn.Softsign(),
+            'nearbySmelt': nn.Softsign(),
+            'place': nn.Softsign(),
+            'right': nn.Softsign(),
+            'sneak': nn.Softsign(),
+            'sprint': nn.Softsign(),
         })
  
         self.next_state_predict_cnn_lstm = torch.nn.LSTM(80+action_size+1, growth_rate, num_layers=2, batch_first=True, bias=False)  
@@ -129,7 +135,7 @@ class Actor_TS(nn.Module):
         self.next_state_predict_agent_inventory.add_module('linear2', nn.Linear(100, 20, bias=False))
         self.next_state_predict_agent_inventory.add_module('relu2', nn.ReLU(inplace=True))
        
-        self.normalize_rewards = nn.BatchNorm1d(self.seq_len)
+        self.normalize_rewards = nn.LayerNorm(self.seq_len)
 
         self.normalize_q_value = nn.BatchNorm1d(self.seq_len)
         self.qvalue_lstm = torch.nn.LSTM(80+action_size+1, 1, num_layers=2, batch_first=True, bias=False)  
@@ -146,9 +152,12 @@ class Actor_TS(nn.Module):
 
         self.reset_parameters()
 
-    def init_hidden(self):
-        h0 = torch.nn.init.xavier_normal(num_layers, batch_size, hidden_size)
-        c0 = torch.nn.init.xavier_normal(num_layers, batch_size, hidden_size)
+    def init_hidden(self, batch_size, num_layers, hidden_size):
+        h0 = torch.zeros(num_layers, batch_size, hidden_size)
+        c0 = torch.zeros(num_layers, batch_size, hidden_size)
+        h0 = torch.nn.init.xavier_uniform_(h0)
+        c0 = torch.nn.init.xavier_uniform_(c0)
+        return h0.to(device), c0.to(device)
 
     def reset_parameters(self):
         
@@ -158,7 +167,12 @@ class Actor_TS(nn.Module):
                 #nn.init.constant_(m.bias, 0)
             elif isinstance(m, nn.Linear):
                 nn.init.xavier_uniform_(m.weight, gain=nn.init.calculate_gain('relu'))
-                
+
+        for m in self.action_modules_1:
+            nn.init.xavier_uniform_(self.action_modules_1[m].weight, gain=nn.init.calculate_gain('relu'))
+            nn.init.constant_(self.action_modules_1[m].bias, 0)
+
+
         for m in self.next_state_predict_cnn:
             if isinstance(m, nn.Conv2d):
                 torch.nn.init.xavier_normal_(m.weight, gain=nn.init.calculate_gain('tanh'))
@@ -194,22 +208,31 @@ class Actor_TS(nn.Module):
         #print(world_state[0,:,0,:,:].shape)
         #pil_img = transforms.ToPILImage()(world_state[0,:,0,:,:].cpu())
         #imshow(pil_img)
-        #pyplot.show()
+        #pyplot.show
+
+        batch_size = world_state.shape[0]
+        num_layers = 2
 
         x = self.cnn(world_state).squeeze(dim=3).squeeze(dim=3)
         x = x.permute(0,2,1)
-        world_state, (hidden, cell) = self.pov_lstm(x)
+        h0, c0 = self.init_hidden(batch_size, num_layers, 60)
+        #h0 = h0.permute(0,2,1)
+        #c0 = c0.permute(0,2,1)
+        world_state, (hidden, cell) = self.pov_lstm(x, (h0, c0))
 
         agent_state_inventory = self.normalize_inventory(agent_state_inventory)
-        agent_state_inventory, (hidden, cell) = self.inventory_lstm(agent_state_inventory)
+        h0, c0 = self.init_hidden(batch_size, num_layers, 60)
+        agent_state_inventory, (hidden, cell) = self.inventory_lstm(agent_state_inventory, (h0, c0))
 
         agent_state_mh = self.normalize_mh(agent_state_mh)
-        agent_state_mh, (hidden, cell) = self.mh_lstm(agent_state_mh)
+        h0, c0 = self.init_hidden(batch_size, num_layers, 20)
+        agent_state_mh, (hidden, cell) = self.mh_lstm(agent_state_mh, (h0, c0))
 
 
         combined_state = torch.cat([world_state, agent_state_mh, agent_state_inventory], 2)
-        combined_state, (hidden, cell) = self.cnn_mh_inventory_lstm(combined_state) 
-
+        h0, c0 = self.init_hidden(batch_size, num_layers, 80)
+        combined_state, (hidden, cell) = self.cnn_mh_inventory_lstm(combined_state, (h0, c0)) 
+        combined_state = self.normalize_action_inputs(combined_state)
 
         actions = {}
         actions_raw = []
@@ -217,13 +240,13 @@ class Actor_TS(nn.Module):
         
         for action in self.action_modules_lstm:
             
-            #if (action != "camera"):
-            out, (hidden, cell) = self.action_modules_lstm[action](combined_state)
-            #else:
+            #h0, c0 = self.init_hidden(batch_size, num_layers, self.action_modules_1_output_size[action])
+            #out, (hidden, cell) = self.action_modules_lstm[action](combined_state, (h0, c0))
+
             #    out = self.action_modules_lstm[action](combined_state)
             #out = self.activation_modules[action](combined_state)
-            #out = self.action_modules_1[action](combined_state)
-            #out = self.activation_modules[action](out)
+            out = self.action_modules_1[action](combined_state)
+            out = self.activation_modules[action](out)
             
             
             if action == "forward_":
@@ -240,9 +263,10 @@ class Actor_TS(nn.Module):
                 ones = torch.ones_like(out)
                 out = torch.where(out > 0.5, ones, zeros).float()
             elif action == "camera":
-                out = torch.clamp(out, min=-180, max=180)
+                #out = torch.clamp(out, min=-180, max=180)
                 out = out.float()
                 action_logits.append(out)
+                out /= 180.0
                                        
             actions_raw.append(out)
             
@@ -263,7 +287,8 @@ class Actor_TS(nn.Module):
         #n_asmhd_predict = self.next_state_predict_agent_mh(z)
         #n_asinventoryd_predict = self.next_state_predict_agent_inventory(z)
         z = self.normalize_q_value(z)
-        q_value, (hidden, cell) = self.qvalue_lstm(z)
+        h0, c0 = self.init_hidden(batch_size, num_layers, 1)
+        q_value, (hidden, cell) = self.qvalue_lstm(z, (h0, c0))
         #q_value, (hidden, cell) = self.qvalue_lstm_2(q_value)
         q_value = q_value.squeeze()
         

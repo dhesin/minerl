@@ -15,7 +15,7 @@ from PIL import Image
 
 #%matplotlib inline
 
-BUFFER_SIZE = int(5e2)  # replay buffer size
+BUFFER_SIZE = int(1000)  # replay buffer size
 
 import ddpg_agent_sequential
 reload(ddpg_agent_sequential)
@@ -238,7 +238,7 @@ writer = SummaryWriter()
 
 data = minerl.data.make(
     'MineRLObtainDiamondDense-v0',
-    data_dir="/home/desin/minerl/data")
+    data_dir="/home/darici/minerl/minerl/data")
 
 sequence_len = 32
 #agent = Agent_TS(agent_mh_size = 3, agent_inventory_size = 18, \
@@ -276,34 +276,36 @@ pyplot.ion()
 
 
 
+def learn_from_buffer():
+    # Learn without the environment
+    eps_i=0
+    while True:
+        eps_i = eps_i+1
+        agent.learn_from_players_2(writer)
+        print("stepping")
+        agent.actor_scheduler.step()
+
+        if eps_i % 50 == 0:
+            print('\nEpisode:{}\t       '.format(eps_i), end="")
+            torch.save(agent.actor_local.state_dict(), 'checkpoint_actor.pth')
+        if eps_i >= BUFFER_SIZE:
+            break
+
+
 # Put data into memory
-eps_i=0
 for epoch in range(10):
     for current_state, action, reward, next_state, done in data.sarsd_iter(num_epochs=1, max_sequence_len=sequence_len, seed=0):
-        eps_i = eps_i+1
         done = np.delete(done, -1)
         experiences = extract_data_from_dict(current_state, action, reward, next_state, done)
         agent.memory.add(experiences)
+        print("memory size:{}".format(len(agent.memory.memory)))
         if (len(agent.memory.memory) >= BUFFER_SIZE):
-            break
-    if (len(agent.memory.memory) >= BUFFER_SIZE):
-        break
+            agent.memory.update_priorities()
+            learn_from_buffer()
+            agent.memory.memory.clear()
+            agent.memory.pos = 0
 
 
-# Learn without the environment
-eps_i=0
-while True:
-    #print(action['camera'])
-    eps_i = eps_i+1
-    agent.learn_from_players_2(writer)
-    print("stepping")
-    agent.actor_scheduler.step() 
-    
-    if eps_i % 50 == 0:
-        print('\nEpisode:{}\t       '.format(eps_i), end="")
-        torch.save(agent.actor_local.state_dict(), 'checkpoint_actor.pth')
-    if eps_i >= 5000:
-        break
 
 print("DONE")
 exit()

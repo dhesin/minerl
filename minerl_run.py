@@ -29,6 +29,7 @@ from ddpg_agent_sequential import Agent_TS
 #writer = SummaryWriter()
 
 sequence_len = 32
+sample_len = 1
 weight_file_timestamp = os.stat("checkpoint_actor.pth")[8]
 agent = Agent_TS(agent_mh_size = 3, agent_inventory_size = 18, \
         world_state_size = [3, 32, 64, 64], action_size=14, \

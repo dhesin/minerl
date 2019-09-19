@@ -18,10 +18,10 @@ import torch.optim as optim
 import torchvision.transforms as transforms
 
 BUFFER_SIZE = int(5e4)  # replay buffer size
-BATCH_SIZE = 4         # minibatch size
+BATCH_SIZE = 2         # minibatch size
 GAMMA = 1.0            # discount factor
 TAU = 1e-8              # for soft update of target parameters
-LR_ACTOR = 1e-5         # learning rate of the actor 
+LR_ACTOR = 1e-7         # learning rate of the actor 
 LR_CRITIC = 1e-4        # learning rate of the critic
 WEIGHT_DECAY = 0.000   # L2 weight decay
 
@@ -81,20 +81,20 @@ class Agent_TS():
                 {'params':self.actor_local.action_modules_lstm['right'].parameters(), 'lr':1e-6},\
                 {'params':self.actor_local.action_modules_lstm['sneak'].parameters(), 'lr':1e-6},\
                 {'params':self.actor_local.action_modules_lstm['sprint'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_1['attack'].parameters(), 'lr':1e-7},\
-                {'params':self.actor_local.action_modules_1['back'].parameters(), 'lr':1e-7},\
-                {'params':self.actor_local.action_modules_1['camera'].parameters(), 'lr':1e-7},\
-                {'params':self.actor_local.action_modules_1['craft'].parameters(), 'lr':1e-7},\
-                {'params':self.actor_local.action_modules_1['equip'].parameters(), 'lr':1e-7},\
-                {'params':self.actor_local.action_modules_1['forward_'].parameters(), 'lr':1e-8},\
-                {'params':self.actor_local.action_modules_1['jump'].parameters(), 'lr':1e-7},
-                {'params':self.actor_local.action_modules_1['left'].parameters(), 'lr':1e-7},\
-                {'params':self.actor_local.action_modules_1['nearbyCraft'].parameters(), 'lr':1e-7},\
-                {'params':self.actor_local.action_modules_1['nearbySmelt'].parameters(), 'lr':1e-7},\
-                {'params':self.actor_local.action_modules_1['place'].parameters(), 'lr':1e-7},\
-                {'params':self.actor_local.action_modules_1['right'].parameters(), 'lr':1e-7},\
-                {'params':self.actor_local.action_modules_1['sneak'].parameters(), 'lr':1e-7},\
-                {'params':self.actor_local.action_modules_1['sprint'].parameters(), 'lr':1e-7},\
+                {'params':self.actor_local.action_modules_1['attack'].parameters(), 'lr':1e-5},\
+                {'params':self.actor_local.action_modules_1['back'].parameters(), 'lr':1e-5},\
+                {'params':self.actor_local.action_modules_1['camera'].parameters(), 'lr':1e-5},\
+                {'params':self.actor_local.action_modules_1['craft'].parameters(), 'lr':1e-5},\
+                {'params':self.actor_local.action_modules_1['equip'].parameters(), 'lr':1e-5},\
+                {'params':self.actor_local.action_modules_1['forward_'].parameters(), 'lr':1e-5},\
+                {'params':self.actor_local.action_modules_1['jump'].parameters(), 'lr':1e-5},
+                {'params':self.actor_local.action_modules_1['left'].parameters(), 'lr':1e-5},\
+                {'params':self.actor_local.action_modules_1['nearbyCraft'].parameters(), 'lr':1e-5},\
+                {'params':self.actor_local.action_modules_1['nearbySmelt'].parameters(), 'lr':1e-5},\
+                {'params':self.actor_local.action_modules_1['place'].parameters(), 'lr':1e-5},\
+                {'params':self.actor_local.action_modules_1['right'].parameters(), 'lr':1e-5},\
+                {'params':self.actor_local.action_modules_1['sneak'].parameters(), 'lr':1e-5},\
+                {'params':self.actor_local.action_modules_1['sprint'].parameters(), 'lr':1e-5},\
                 ], lr=LR_ACTOR)
         #self.actor_optimizer = optim.Adam(self.actor_local.parameters())
         self.actor_scheduler = optim.lr_scheduler.StepLR(self.actor_optimizer, step_size=1000, gamma=0.99)
@@ -227,12 +227,6 @@ class Agent_TS():
 
         #self.actor_scheduler.step()
         #self.critic_scheduler.step()
-
-    def learn_from_players_2(self, writer):
-            
-        self.iter = self.iter+1    
-        experiences = self.memory.sample()  
-        loss_1, loss_2 = self.learn_2(experiences, GAMMA, writer)
         
     
     def act(self, mainhand, inventory, pov,  add_noise=True, noise_scale=1.0):
@@ -329,7 +323,7 @@ class Agent_TS():
 
             #writer.add_scalars('Q Values_', {"Q Value":q_loss, "Q Difference":q_diff_loss}, global_step=self.iter)
 
-            torch.autograd.backward([attack_loss,back_loss, yaw_loss,craft_loss,equip_loss,\
+            torch.autograd.backward([attack_loss,back_loss,pitch_loss,yaw_loss,craft_loss,equip_loss,\
                     forward_loss,jump_loss,left_loss,nearby_craft_loss,nearby_smelt_loss,place_loss, \
                     right_loss,sneak_loss, sprint_loss])
 
@@ -437,7 +431,7 @@ class OUNoise:
 
     
 class NaivePrioritizedBuffer(object):
-    def __init__(self, capacity, batch_size, seed, prob_alpha=0.6):
+    def __init__(self, capacity, batch_size, seed, prob_alpha=0.4):
         self.prob_alpha = prob_alpha
         self.capacity   = capacity
         self.memory     = []
@@ -449,8 +443,8 @@ class NaivePrioritizedBuffer(object):
     
     def add(self, experiences):
 
-        if len(experiences[0])<32:
-            return
+        #if len(experiences[0])<32:
+        #    return
 
         #if (experiences[4].sum() < 1 and random.random() <= 0.05):
         #    return
@@ -495,6 +489,8 @@ class NaivePrioritizedBuffer(object):
                     action_priorities[j] = action_priorities[j]+1
 
         action_priorities = len(self.memory)/(action_priorities+0.1)
+        action_priorities = action_priorities ** self.prob_alpha
+        print(action_priorities)
 
         for i in range(len(self.memory)):
             actions = self.memory[i][3]
@@ -502,7 +498,61 @@ class NaivePrioritizedBuffer(object):
             for j in range(actions_len):
                 if (np.any(actions[:,j])):
                     self.priorities[i] = self.priorities[i] + action_priorities[j]
-            #print(self.priorities[i])
+            print(self.priorities[i])
 
+    def sample_sequence(self, beta=0.4):
+        
+        if len(self.memory) == self.capacity:
+            prios = self.priorities[32,:]
+        else:
+            prios = self.priorities[32:self.pos]
+        
+        #probs  = prios ** self.prob_alpha
+        probs  = prios
+        probs /= probs.sum()
+        
+        #indices = np.random.choice(len(self.memory), self.batch_size, p=probs)
+        indices = np.random.choice(np.arange(32,len(self.memory)), self.batch_size, False, p=probs)
+
+
+
+        experiences = []
+        
+        for i in range(self.batch_size):
+            ts_0 = []
+            ts_1 = []
+            ts_2 = []
+            ts_3 = []
+            ts_4 = []
+            ts_5 = []
+            ts_6 = []
+            ts_7 = []
+            ts_8 = []
+            idx = indices[i]
+            for j in range(32):
+                ts_0.append(self.memory[idx-32+j][0])
+                ts_1.append(self.memory[idx-32+j][1])
+                ts_2.append(self.memory[idx-32+j][2])
+                #print(self.memory[idx-32+j][2].shape)
+                ts_3.append(self.memory[idx-32+j][3])
+                ts_4.append(self.memory[idx-32+j][4])
+                ts_5.append(self.memory[idx-32+j][5])
+                ts_6.append(self.memory[idx-32+j][6])
+                ts_7.append(self.memory[idx-32+j][7])
+                ts_8.append(self.memory[idx-32+j][8])
+            ts_00 = np.vstack(ts_0)
+            ts_11 = np.vstack(ts_1)
+            ts_22 = np.stack(ts_2, axis=1).squeeze()
+            ts_33 = np.vstack(ts_3)
+            ts_44 = np.vstack(ts_4).squeeze()
+            ts_55 = np.vstack(ts_5)
+            ts_66 = np.vstack(ts_6)
+            ts_77 = np.stack(ts_7, axis=1).squeeze()
+            ts_88 = np.vstack(ts_8)
+            #print(ts_22.shape)
+            experiences.append((ts_00, ts_11, ts_22, ts_33, ts_44, ts_55, ts_66, ts_77, ts_88))
+
+        return experiences
+    
     def __len__(self):
         return len(self.memory)        

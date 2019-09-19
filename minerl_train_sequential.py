@@ -15,8 +15,6 @@ from PIL import Image
 
 #%matplotlib inline
 
-BUFFER_SIZE = int(1000)  # replay buffer size
-
 import ddpg_agent_sequential
 reload(ddpg_agent_sequential)
 from ddpg_agent_sequential import Agent_TS
@@ -25,29 +23,7 @@ from ddpg_agent_sequential import Agent_TS
 #logging.basicConfig(level=logging.DEBUG)
 #pil_img = transforms.ToPILImage()(pov)
 #imshow(pil_img)
- 
-def entropy(labels):
-  """ Computes entropy of label distribution. """
 
-  n_labels = len(labels)
-
-  if n_labels <= 1:
-    return 0
-
-  value,counts = np.unique(labels, return_counts=True)
-  probs = counts / n_labels
-  n_classes = np.count_nonzero(probs)
-
-  if n_classes <= 1:
-    return 0
-
-  ent = 0.
-
-  # Compute entropy
-  for i in probs:
-    ent -= i * np.log(i)
-
-  return ent
 
 
 def extract_data_from_dict(current_state, action, reward, next_state, done):
@@ -232,39 +208,17 @@ def extract_data_from_dict(current_state, action, reward, next_state, done):
 
 
 
-
-writer = SummaryWriter()
-
-
-data = minerl.data.make(
-    'MineRLObtainDiamondDense-v0',
-    data_dir="/home/darici/minerl/minerl/data")
-
-sequence_len = 32
-#agent = Agent_TS(agent_mh_size = 3, agent_inventory_size = 18, \
-#        world_state_size = [3, 32, 64, 64], action_size=14, \
-#        random_seed=0, seq_len = sequence_len, actor_chkpt_file="checkpoint_actor.pth")
-
-agent = Agent_TS(agent_mh_size = 3, agent_inventory_size = 18, \
-        world_state_size = [3, 32, 64, 64], action_size=14, \
-        random_seed=0, seq_len = sequence_len)
-
-
-
 #action_counts = np.zeros((action_s-1, 10), dtype=int)
 action_names = ("attack", "back", "craft", "equip",
                      "forward", "jump", "left", "nearbyCraft", "nearbySmelt", 
                      "place", "right", "sneak", "sprint")
-camera_list = deque(maxlen=10000)
 camera_action_names = ("pitch", "yaw")
 
 agent_state_list_names = ['damage', 'maxDamage', 'type', 'coal', 'cobblestone', 'crafting_table', 
                     'dirt', 'furnace','iron_axe', 'iron_ingot', 'iron_ore', 'iron_pickaxe', 
                     'log', 'planks', 'stick', 'stone', 'stone_axe', 'stone_pickaxe', 
                     'torch', 'wooden_axe', 'wooden_pickaxe']
-agent_state_list = []
 
-loss_list = deque(maxlen=10000)
 
 pyplot.ion()
 #pyplot.show()
@@ -276,12 +230,35 @@ pyplot.ion()
 
 
 
+writer = SummaryWriter()
+
+data = minerl.data.make(
+    'MineRLObtainDiamondDense-v0',
+    data_dir="/home/desin/minerl/data")
+
+sequence_len = 32
+sample_len = 1
+BUFFER_SIZE = int(100)  # replay buffer size
+#agent = Agent_TS(agent_mh_size = 3, agent_inventory_size = 18, \
+#        world_state_size = [3, 32, 64, 64], action_size=14, \
+#        random_seed=0, seq_len = sequence_len, actor_chkpt_file="checkpoint_actor.pth")
+
+agent = Agent_TS(agent_mh_size = 3, agent_inventory_size = 18, \
+        world_state_size = [3, 32, 64, 64], action_size=14, \
+        random_seed=0, seq_len = sequence_len)
+
+
+
+
 def learn_from_buffer():
     # Learn without the environment
     eps_i=0
     while True:
         eps_i = eps_i+1
-        agent.learn_from_players_2(writer)
+        agent.iter = agent.iter+1    
+        experiences = agent.memory.sample_sequence()  
+        print(experiences[0][2].shape)
+        loss_1, loss_2 = agent.learn_2(experiences, 1., writer)
         print("stepping")
         agent.actor_scheduler.step()
 
@@ -294,7 +271,7 @@ def learn_from_buffer():
 
 # Put data into memory
 for epoch in range(10):
-    for current_state, action, reward, next_state, done in data.sarsd_iter(num_epochs=1, max_sequence_len=sequence_len, seed=0):
+    for current_state, action, reward, next_state, done in data.sarsd_iter(num_epochs=1, max_sequence_len=sample_len, seed=0):
         done = np.delete(done, -1)
         experiences = extract_data_from_dict(current_state, action, reward, next_state, done)
         agent.memory.add(experiences)
@@ -305,108 +282,4 @@ for epoch in range(10):
             agent.memory.memory.clear()
             agent.memory.pos = 0
 
-
-
-print("DONE")
-exit()
-
-
-env = gym.make("MineRLObtainDiamondDense-v0") 
-env.seed(125)
-obs_a = env.reset()
-
-action_a = deque(maxlen=sequence_len)
-mainhand_a = deque(maxlen=sequence_len)
-inventory_a = deque(maxlen=sequence_len)
-pov_a = deque(maxlen=sequence_len)
-
-
-#action_a.append(env.action_space.sample())
-for i in range(sequence_len):
-    mainhand_a.append(obs_a['equipped_items']['mainhand'])
-    inventory_a.append(obs_a['inventory'])
-    pov_a.append(obs_a['pov'])
-
-agent_state_s = len(list(obs_a['equipped_items']['mainhand'].values())) + len(list(obs_a['inventory'].values()))
-world_state_s = obs_a['pov'].shape
-action_s = len(list(env.action_space.sample().values()))
-
-
-
-# Iterate through a single epoch gathering sequences of at most 32 steps
-eps_i=0
-done_1=False
-active_reward=0
-info={}
-for epoch in range(10):
-    for current_state, action, reward, next_state, done in data.sarsd_iter(num_epochs=1, max_sequence_len=sequence_len, seed=0):
-            #print(action['camera'])
-            eps_i = eps_i+1
-            done = np.delete(done, -1)
-            experiences = extract_data_from_dict(current_state, action, reward, next_state, done)
-            agent.learn_from_players(experiences, writer)
-            agent.actor_scheduler.step() 
-            
-            if (reward[-1] > 0):
-                print("Training Reward:{}".format(reward[-1]))
-
-            if (done_1==False):
-                with torch.no_grad():
-                    action_1, action_1_raw, _ , _  = agent.act(mainhand_a, inventory_a, pov_a)
-                obs_1, reward_1, done_1, info = env.step(action_1)
-                if (action_1["forward"] > 1):
-                    print(info)
-                    print(exit)
-
-                print(obs_1['pov'].shape)
-                print(experiences[2].shape)
-
-                #print(action_1_raw)
-                if (reward_1 >0):
-                    active_reward = active_reward+1
-                    print("REWARD !!!!!!!!!!!!!!!!!!!!!! {}".format(active_reward))
-                if (active_reward > 0):
-                    print("REWARD !!!!! {}".format(active_reward))
-
-
-                writer.add_scalars('Camera', {'picth':action_1_raw[-1,-1,2], 'yaw':action_1_raw[-1,-1,3]}, global_step=eps_i)
-
-
-                writer.add_scalars('actions', {"attack":action_1_raw[-1,-1,0], "back":action_1_raw[-1,-1,1], \
-                    "craft":action_1_raw[-1,-1,4], "equip":action_1_raw[-1,-1,5], "forward":action_1_raw[-1,-1,6], \
-                    "jump":action_1_raw[-1,-1,7], "left":action_1_raw[-1,-1,8], "nearbyCraft":action_1_raw[-1,-1,9], \
-                    "nearbySmelt":action_1_raw[-1,-1,10], "place":action_1_raw[-1,-1,11], "right":action_1_raw[-1,-1,12], \
-                    "sneak":action_1_raw[-1,-1,13], "sprint":action_1_raw[-1,-1,14]}, global_step=eps_i)
-
-
-            else:
-                print("RESET ----------------")
-                active_reward = 0
-                env.seed(1255)
-                obs_1 = env.reset()
-                done_1=False
-                
-            print(info)
-            if eps_i % 1000 == 0:
-                print('\nEpisode:{}\t       '.format(eps_i), end="")
-                torch.save(agent.actor_local.state_dict(), 'checkpoint_actor.pth')
-     
-            #action_1 = env.action_space.sample()
-            #print(action_1)
-            #experience = extract_data_from_dict_single(obs_a, action_1, reward_1, obs_1, done_1)
-            #agent.add_memory(experience)
-
-            obs_a = obs_1
-            mainhand_a.append(obs_a['equipped_items']['mainhand'])
-            inventory_a.append(obs_a['inventory'])
-            pov_a.append((obs_a['pov']))
-
-            env.render()
-
-    print("num iterations in an epoch:{}".format(eps_i))
-    eps_i = 0
-    agent.actor_scheduler.step()
-    print(agent.actor_scheduler.get_lr())
-
-print("DONE")
 

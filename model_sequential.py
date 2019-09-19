@@ -55,7 +55,8 @@ class Actor_TS(nn.Module):
         self.mh_lstm = torch.nn.LSTM(agent_mh_size, 20, num_layers=2, batch_first=True, bias=False)  
 
  
-        self.cnn_mh_inventory_lstm = torch.nn.LSTM(140, 80, num_layers=2, batch_first=True, bias=False)  
+        self.cnn_mh_inventory_lstm = torch.nn.LSTM(140, 80, num_layers=2, batch_first=True, bias=False) 
+        #self.cnn_mh_inventory_lstm.register_backward_hook(self.back_hook) 
               
         self.normalize_action_inputs = nn.LayerNorm(80)
         self.action_modules_lstm = nn.ModuleDict({
@@ -74,6 +75,7 @@ class Actor_TS(nn.Module):
             'sneak': nn.LSTM(80,1, num_layers=2, batch_first=True, bias=True),
             'sprint': nn.LSTM(80,1, num_layers=2, batch_first=True, bias=True)
         })
+
  
         self.action_modules_1 = nn.ModuleDict({
             'attack': nn.Linear(80,1, bias=True),
@@ -91,6 +93,7 @@ class Actor_TS(nn.Module):
             'sneak': nn.Linear(80,1, bias=True),
             'sprint': nn.Linear(80,1, bias=True)
         })
+        #self.action_modules_1["attack"].register_backward_hook(self.back_hook) 
 
         self.action_modules_1_output_size = {'attack':1, 'back':1, 'camera':2, 'craft':5,\
             'equip':8, 'forward_':1, 'jump':1, 'left':1, 'nearbyCraft':8, 'nearbySmelt':3,\
@@ -158,6 +161,24 @@ class Actor_TS(nn.Module):
         h0 = torch.nn.init.xavier_uniform_(h0)
         c0 = torch.nn.init.xavier_uniform_(c0)
         return h0.to(device), c0.to(device)
+
+    def back_hook(self, m, i, o):
+        print(m)
+        print("------------Input Grad------------")
+
+        for grad in i:
+            try:
+                print(grad)
+            except AttributeError: 
+                print ("None found for Gradient")
+
+        print("------------Output Grad------------")
+        for grad in o:  
+            try:
+                print(grad)
+            except AttributeError: 
+                print ("None found for Gradient")
+        print("\n")
 
     def reset_parameters(self):
         

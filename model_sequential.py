@@ -105,13 +105,13 @@ class Actor_TS(nn.Module):
             'camera': nn.Softsign(),
             'craft': nn.Softsign(),
             'equip': nn.Softsign(),
-            'forward_': nn.Softsign(),
+            'forward_': nn.Sigmoid(),
             'jump': nn.Softsign(),
             'left': nn.Softsign(),
             'nearbyCraft': nn.Softsign(),
             'nearbySmelt': nn.Softsign(),
             'place': nn.Softsign(),
-            'right': nn.Softsign(),
+            'right': nn.Sigmoid(),
             'sneak': nn.Softsign(),
             'sprint': nn.Softsign(),
         })
@@ -261,12 +261,9 @@ class Actor_TS(nn.Module):
         
         for action in self.action_modules_lstm:
             
-            #h0, c0 = self.init_hidden(batch_size, num_layers, self.action_modules_1_output_size[action])
-            #out, (hidden, cell) = self.action_modules_lstm[action](combined_state, (h0, c0))
-
-            #    out = self.action_modules_lstm[action](combined_state)
-            #out = self.activation_modules[action](combined_state)
-            out = self.action_modules_1[action](combined_state)
+            h0, c0 = self.init_hidden(batch_size, num_layers, self.action_modules_1_output_size[action])
+            out, (hidden, cell) = self.action_modules_lstm[action](combined_state, (h0, c0))
+            #out = self.action_modules_1[action](combined_state)
             out = self.activation_modules[action](out)
             
             

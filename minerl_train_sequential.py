@@ -234,11 +234,11 @@ writer = SummaryWriter()
 
 data = minerl.data.make(
     'MineRLObtainDiamondDense-v0',
-    data_dir="/home/desin/minerl/data")
+    data_dir="/home/darici/minerl/minerl/data")
 
 sequence_len = 32
 sample_len = 1
-BUFFER_SIZE = int(100)  # replay buffer size
+BUFFER_SIZE = int(1000)  # replay buffer size
 #agent = Agent_TS(agent_mh_size = 3, agent_inventory_size = 18, \
 #        world_state_size = [3, 32, 64, 64], action_size=14, \
 #        random_seed=0, seq_len = sequence_len, actor_chkpt_file="checkpoint_actor.pth")
@@ -257,7 +257,6 @@ def learn_from_buffer():
         eps_i = eps_i+1
         agent.iter = agent.iter+1    
         experiences = agent.memory.sample_sequence()  
-        print(experiences[0][2].shape)
         loss_1, loss_2 = agent.learn_2(experiences, 1., writer)
         print("stepping")
         agent.actor_scheduler.step()
@@ -265,7 +264,7 @@ def learn_from_buffer():
         if eps_i % 50 == 0:
             print('\nEpisode:{}\t       '.format(eps_i), end="")
             torch.save(agent.actor_local.state_dict(), 'checkpoint_actor.pth')
-        if eps_i >= BUFFER_SIZE:
+        if eps_i >= BUFFER_SIZE/10:
             break
 
 

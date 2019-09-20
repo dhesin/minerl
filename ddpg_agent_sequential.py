@@ -21,7 +21,7 @@ BUFFER_SIZE = int(5e4)  # replay buffer size
 BATCH_SIZE = 2         # minibatch size
 GAMMA = 1.0            # discount factor
 TAU = 1e-8              # for soft update of target parameters
-LR_ACTOR = 1e-7         # learning rate of the actor 
+LR_ACTOR = 1e-8         # learning rate of the actor 
 LR_CRITIC = 1e-4        # learning rate of the critic
 WEIGHT_DECAY = 0.000   # L2 weight decay
 
@@ -73,7 +73,7 @@ class Agent_TS():
                 {'params':self.actor_local.action_modules_lstm['craft'].parameters(), 'lr':1e-6},\
                 {'params':self.actor_local.action_modules_lstm['equip'].parameters(), 'lr':1e-6},\
                 {'params':self.actor_local.action_modules_lstm['forward_'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_lstm['jump'].parameters(), 'lr':1e-4},\
+                {'params':self.actor_local.action_modules_lstm['jump'].parameters(), 'lr':1e-6},\
                 {'params':self.actor_local.action_modules_lstm['left'].parameters(), 'lr':1e-6},\
                 {'params':self.actor_local.action_modules_lstm['nearbyCraft'].parameters(), 'lr':1e-6},\
                 {'params':self.actor_local.action_modules_lstm['nearbySmelt'].parameters(), 'lr':1e-6},\
@@ -431,7 +431,7 @@ class OUNoise:
 
     
 class NaivePrioritizedBuffer(object):
-    def __init__(self, capacity, batch_size, seed, prob_alpha=0.4):
+    def __init__(self, capacity, batch_size, seed, prob_alpha=0.3):
         self.prob_alpha = prob_alpha
         self.capacity   = capacity
         self.memory     = []
@@ -498,7 +498,7 @@ class NaivePrioritizedBuffer(object):
             for j in range(actions_len):
                 if (np.any(actions[:,j])):
                     self.priorities[i] = self.priorities[i] + action_priorities[j]
-            print(self.priorities[i])
+            #print(self.priorities[i])
 
     def sample_sequence(self, beta=0.4):
         

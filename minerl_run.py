@@ -104,9 +104,10 @@ while True:
             #a = action_1_raw[0].to(dtype=torch.uint8)
             #if not (a.any()):
             #    action_1 = env.action_space.sample()
+        action_1["right"] = 1-action_1["left"]
         obs_1, reward_1, done_1, info = env.step(action_1)
  
-        #print(action_1_raw)
+        print(action_1)
         if (reward_1 >0):
             active_reward = active_reward+1
             print("REWARD !!!!!!!!!!!!!!!!!!!!!! {}".format(active_reward))

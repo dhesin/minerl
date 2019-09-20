@@ -361,16 +361,16 @@ class Agent_TS():
 
 
         rewards = self.actor_local.normalize_rewards(rewards)
-        for i in range(rewards.shape[0]):
-            rewards[i,:] = rewards[i,:] + rewards[i].sum()
+        #for i in range(rewards.shape[0]):
+        #    rewards[i,:] = rewards[i,:] + rewards[i].sum()
 
-        Q_current_2 = rewards + (gamma * Q_next * (1 - dones.squeeze()))
-
+        Q_current_2 = rewards[:,-1].squeeze() + (gamma * Q_next * (1 - dones[:,-1,:].squeeze()))
 
         # predict actions and next state with 
         _, action_raw, action_logits, Q_current = self.actor_local(a_states_mh, w_states, a_states_invent)
 
-        loss_1, loss_2 = self.get_action_loss(writer, actions, action_logits, Q_current_2, Q_current, rewards)
+
+        loss_1, loss_2 = self.get_action_loss(writer, actions[:,-1,:].unsqueeze(dim=1), action_logits, Q_current_2, Q_current, rewards)
 
 
         for i in range(action_raw.shape[0]):

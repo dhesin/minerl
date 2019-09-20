@@ -7,9 +7,9 @@ from PIL import Image
 from matplotlib.pyplot import imshow
 
 import model_sequential
-from model_sequential import Actor_TS, Critic_TS
+from model_sequential import Actor_TS
 reload(model_sequential)
-from model_sequential import Actor_TS, Critic_TS
+from model_sequential import Actor_TS
 
 
 import torch
@@ -99,22 +99,7 @@ class Agent_TS():
         #self.actor_optimizer = optim.Adam(self.actor_local.parameters())
         self.actor_scheduler = optim.lr_scheduler.StepLR(self.actor_optimizer, step_size=1000, gamma=0.99)
         
-        
-        # Critic Network (w/ Target Network)
-        self.critic_local = Critic_TS(self.agent_mh_size, self.agent_inventory_size, self.world_state_size, self.action_size, self.seed).to(device)
-        self.critic_target = Critic_TS(self.agent_mh_size, self.agent_inventory_size, self.world_state_size, self.action_size, self.seed).to(device)
-
-        params = list(self.critic_local.parameters()) + list(self.actor_local.parameters())
-        #self.critic_optimizer = optim.Adam(self.critic_local.parameters(), lr=LR_CRITIC, weight_decay=WEIGHT_DECAY)
-        self.critic_optimizer = optim.Adam(params, lr=LR_CRITIC)
-        self.critic_scheduler = optim.lr_scheduler.StepLR(self.critic_optimizer, step_size=200, gamma=0.99)
-        
         self.hard_copy_weights(self.actor_target, self.actor_local)
-        self.hard_copy_weights(self.critic_target, self.critic_local)
-
-
-        # Noise process
-        self.noise = OUNoise(self.action_size, self.seed)
 
         # Replay memory
         #self.memory = ReplayBuffer(self.action_size, BUFFER_SIZE, BATCH_SIZE, self.seed)
@@ -131,16 +116,16 @@ class Agent_TS():
             #self.actor_target.load_state_dict(checkpoint_actor_t)
             #self.critic_target.load_state_dict(checkpoint_critic_t)
 
-    def flatten_action(self, action):
+    # def flatten_action(self, action):
         
-        action_flat = []
-        for x in action:
-            if type(x) is list:
-                for y in x:
-                    action_flat.append(y)
-            else:
-                action_flat.append(x)
-        return action_flat
+    #     action_flat = []
+    #     for x in action:
+    #         if type(x) is list:
+    #             for y in x:
+    #                 action_flat.append(y)
+    #         else:
+    #             action_flat.append(x)
+    #     return action_flat
 
     def get_states(self, mainhand, inventory, pov):
 
@@ -401,33 +386,6 @@ class Agent_TS():
 
         print("Actor Losses:{} {}".format(loss_1.item(), loss_2.item()))
         return loss_1, loss_2
-
-
-
-class OUNoise:
-    """Ornstein-Uhlenbeck process."""
-
-    def __init__(self, size, seed, mu=0., theta=0.15, sigma=0.2):
-        """Initialize parameters and noise process."""
-        self.mu = mu * np.ones(size)
-        self.theta = theta
-        self.sigma = sigma
-        self.seed = random.seed(seed)
-        self.reset()
-
-    def reset(self):
-        """Reset the internal state (= noise) to mean (mu)."""
-        self.state = copy.copy(self.mu)
-
-    def sample(self):
-        """Update internal state and return it as a noise sample."""
-        #self.sigma = 0.99*self.sigma
-        #self.theta = 0.99*self.theta
-        x = self.state
-        dx = self.theta * (self.mu - x) + self.sigma * np.array([random.random() for i in range(len(x))])
-        self.state = x + dx
-        return self.state
-
 
     
 class NaivePrioritizedBuffer(object):

@@ -79,12 +79,12 @@ class Actor_TS(nn.Module):
 
  
         self.action_modules_1 = nn.ModuleDict({
-            'attack': nn.Linear(80,1, bias=True),
+            'attack': nn.Linear(80,1, bias=False),
             'back': nn.Linear(80,1, bias=True),
             'camera': nn.Linear(80,2, bias=True),
             'craft': nn.Linear(80,5, bias=True),
             'equip': nn.Linear(80,8, bias=True),
-            'forward_': nn.Linear(80,1, bias=True),
+            'forward_': nn.Linear(80,1, bias=False),
             'jump': nn.Linear(80,1, bias=True),
             'left': nn.Linear(80,1, bias=True),
             'nearbyCraft': nn.Linear(80,8, bias=True),
@@ -101,20 +101,20 @@ class Actor_TS(nn.Module):
             'place':7, 'right':1, 'sneak':1, 'sprint':1}       
 
         self.activation_modules = nn.ModuleDict({
-            'attack': nn.Softsign(),
-            'back': nn.Softsign(),
-            'camera': nn.Softsign(),
-            'craft': nn.Softsign(),
-            'equip': nn.Softsign(),
-            'forward_': nn.Sigmoid(),
-            'jump': nn.Softsign(),
-            'left': nn.Softsign(),
-            'nearbyCraft': nn.Softsign(),
-            'nearbySmelt': nn.Softsign(),
-            'place': nn.Softsign(),
-            'right': nn.Sigmoid(),
-            'sneak': nn.Softsign(),
-            'sprint': nn.Softsign(),
+            'attack': nn.Tanh(),
+            'back': nn.ReLU(),
+            'camera': nn.Tanhshrink(),
+            'craft': nn.ReLU(),
+            'equip': nn.ReLU(),
+            'forward_': nn.Tanh(),
+            'jump': nn.ReLU(),
+            'left': nn.ReLU(),
+            'nearbyCraft': nn.ReLU(),
+            'nearbySmelt': nn.ReLU(),
+            'place': nn.ReLU(),
+            'right': nn.ReLU(),
+            'sneak': nn.ReLU(),
+            'sprint': nn.ReLU(),
         })
  
         self.next_state_predict_cnn_lstm = torch.nn.LSTM(80+action_size+1, growth_rate, num_layers=2, batch_first=True, bias=False)  
@@ -193,7 +193,7 @@ class Actor_TS(nn.Module):
 
         for m in self.action_modules_1:
             nn.init.xavier_uniform_(self.action_modules_1[m].weight, gain=nn.init.calculate_gain('relu'))
-            nn.init.constant_(self.action_modules_1[m].bias, 0)
+            #nn.init.constant_(self.action_modules_1[m].bias, 0)
 
 
         for m in self.next_state_predict_cnn:
@@ -269,7 +269,7 @@ class Actor_TS(nn.Module):
             #out = self.action_modules_1[action](combined_state)
             out = self.activation_modules[action](out)
             if not self.activation_modules.training:
-                noise = np.random.normal(scale=0.25, size=out.shape)
+                noise = np.random.normal(scale=0.1, size=out.shape)
                 out = out + torch.tensor(noise).float().to(device)
             
             
@@ -291,7 +291,7 @@ class Actor_TS(nn.Module):
                 out = torch.clamp(out, min=-180, max=180)
                 out = out.float()
                 action_logits.append(out)
-                out /= 180.0
+                #out /= 180.0
                                        
             actions_raw.append(out)
             

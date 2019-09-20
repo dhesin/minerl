@@ -20,8 +20,8 @@ import torchvision.transforms as transforms
 BUFFER_SIZE = int(5e4)  # replay buffer size
 BATCH_SIZE = 2         # minibatch size
 GAMMA = 1.0            # discount factor
-TAU = 1e-8              # for soft update of target parameters
-LR_ACTOR = 1e-8         # learning rate of the actor 
+TAU = 1e-5              # for soft update of target parameters
+LR_ACTOR = 1e-10         # learning rate of the actor 
 LR_CRITIC = 1e-4        # learning rate of the critic
 WEIGHT_DECAY = 0.000   # L2 weight decay
 
@@ -67,20 +67,20 @@ class Agent_TS():
                 {'params':self.actor_local.normalize_mh.parameters()},\
                 {'params':self.actor_local.mh_lstm.parameters()},\
                 {'params':self.actor_local.cnn_mh_inventory_lstm.parameters()},\
-                {'params':self.actor_local.action_modules_lstm['attack'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_lstm['back'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_lstm['camera'].parameters(), 'lr':1e-4},\
-                {'params':self.actor_local.action_modules_lstm['craft'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_lstm['equip'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_lstm['forward_'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_lstm['jump'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_lstm['left'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_lstm['nearbyCraft'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_lstm['nearbySmelt'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_lstm['place'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_lstm['right'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_lstm['sneak'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_lstm['sprint'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_lstm['attack'].parameters(), 'lr':1e-9},\
+                {'params':self.actor_local.action_modules_lstm['back'].parameters(), 'lr':1e-9},\
+                {'params':self.actor_local.action_modules_lstm['camera'].parameters(), 'lr':1e-9},\
+                {'params':self.actor_local.action_modules_lstm['craft'].parameters(), 'lr':1e-9},\
+                {'params':self.actor_local.action_modules_lstm['equip'].parameters(), 'lr':1e-9},\
+                {'params':self.actor_local.action_modules_lstm['forward_'].parameters(), 'lr':1e-9},\
+                {'params':self.actor_local.action_modules_lstm['jump'].parameters(), 'lr':1e-10},\
+                {'params':self.actor_local.action_modules_lstm['left'].parameters(), 'lr':1e-9},\
+                {'params':self.actor_local.action_modules_lstm['nearbyCraft'].parameters(), 'lr':1e-9},\
+                {'params':self.actor_local.action_modules_lstm['nearbySmelt'].parameters(), 'lr':1e-9},\
+                {'params':self.actor_local.action_modules_lstm['place'].parameters(), 'lr':1e-9},\
+                {'params':self.actor_local.action_modules_lstm['right'].parameters(), 'lr':1e-9},\
+                {'params':self.actor_local.action_modules_lstm['sneak'].parameters(), 'lr':1e-9},\
+                {'params':self.actor_local.action_modules_lstm['sprint'].parameters(), 'lr':1e-9},\
                 {'params':self.actor_local.action_modules_1['attack'].parameters(), 'lr':1e-5},\
                 {'params':self.actor_local.action_modules_1['back'].parameters(), 'lr':1e-5},\
                 {'params':self.actor_local.action_modules_1['camera'].parameters(), 'lr':1e-5},\
@@ -267,21 +267,21 @@ class Agent_TS():
         #print(rewards)
 
 
-        attack_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,0], gt[:,0])#-rewards[:,0].sum()
-        back_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,1], gt[:,1])#-rewards[:,1].sum()
-        pitch_loss = F.mse_loss(onehot_probs[:,2], gt[:,2])#-rewards[:,2].sum()
-        yaw_loss = F.mse_loss(onehot_probs[:,3], gt[:,3])#-rewards[:,3].sum()
-        craft_loss = F.cross_entropy(onehot_probs[:,4:9], gt[:,4].long())#-rewards[:,4].sum()
-        equip_loss = F.cross_entropy(onehot_probs[:,9:17], gt[:,5].long())#-rewards[:,5].sum()
-        forward_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,17], gt[:,6])#-rewards[:,6].sum()
-        jump_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,18], gt[:,7])#-rewards[:,7].sum()
-        left_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,19], gt[:,8])#-rewards[:,8].sum()
-        nearby_craft_loss = F.cross_entropy(onehot_probs[:,20:28], gt[:,9].long())#-rewards[:,9].sum()
-        nearby_smelt_loss = F.cross_entropy(onehot_probs[:,28:31], gt[:,10].long())#-rewards[:,10].sum()
-        place_loss = F.cross_entropy(onehot_probs[:,31:38], gt[:,11].long())#-rewards[:,11].sum()
-        right_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,38], gt[:,12])#-rewards[:,12].sum()
-        sneak_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,39], gt[:,13])#-rewards[:,13].sum()
-        sprint_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,40], gt[:,14])#-rewards[:,14].sum()
+        attack_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,0], gt[:,0])-rewards[:,0].sum()
+        back_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,1], gt[:,1])-rewards[:,1].sum()
+        pitch_loss = F.mse_loss(onehot_probs[:,2], gt[:,2])-rewards[:,2].sum()
+        yaw_loss = F.mse_loss(onehot_probs[:,3], gt[:,3])-rewards[:,3].sum()
+        craft_loss = F.cross_entropy(onehot_probs[:,4:9], gt[:,4].long())-rewards[:,4].sum()
+        equip_loss = F.cross_entropy(onehot_probs[:,9:17], gt[:,5].long())-rewards[:,5].sum()
+        forward_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,17], gt[:,6])-rewards[:,6].sum()
+        jump_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,18], gt[:,7])-rewards[:,7].sum()
+        left_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,19], gt[:,8])-rewards[:,8].sum()
+        nearby_craft_loss = F.cross_entropy(onehot_probs[:,20:28], gt[:,9].long())-rewards[:,9].sum()
+        nearby_smelt_loss = F.cross_entropy(onehot_probs[:,28:31], gt[:,10].long())-rewards[:,10].sum()
+        place_loss = F.cross_entropy(onehot_probs[:,31:38], gt[:,11].long())-rewards[:,11].sum()
+        right_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,38], gt[:,12])-rewards[:,12].sum()
+        sneak_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,39], gt[:,13])-rewards[:,13].sum()
+        sprint_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,40], gt[:,14])-rewards[:,14].sum()
         q_diff_loss = F.mse_loss(q_exp, q_current)
         q_loss = -q_current.sum()
         
@@ -313,8 +313,7 @@ class Agent_TS():
                     right_loss,sneak_loss, sprint_loss])
 
 
-        #torch.nn.utils.clip_grad_norm_(self.actor_local.parameters(), 1)
-        #torch.nn.utils.clip_grad_norm_(self.critic_local.parameters(), 1)
+        torch.nn.utils.clip_grad_norm_(self.actor_local.parameters(), 1)
         
         self.actor_optimizer.step()
         #self.critic_optimizer.step()
@@ -389,7 +388,7 @@ class Agent_TS():
 
     
 class NaivePrioritizedBuffer(object):
-    def __init__(self, capacity, batch_size, seed, prob_alpha=0.3):
+    def __init__(self, capacity, batch_size, seed, prob_alpha=1.0):
         self.prob_alpha = prob_alpha
         self.capacity   = capacity
         self.memory     = []
@@ -453,9 +452,12 @@ class NaivePrioritizedBuffer(object):
         for i in range(len(self.memory)):
             actions = self.memory[i][3]
             actions_len = len(actions[0])
+            #self.priorities[i] =  (self.memory[i][4])#*actions_len)**2 
             for j in range(actions_len):
                 if (np.any(actions[:,j])):
-                    self.priorities[i] = self.priorities[i] + action_priorities[j]
+                    self.priorities[i] = self.priorities[i] + action_priorities[j] 
+                #for k in range(i-sequence_len, i+1):
+                #    self.priorities[i] = self.priorities[i] + self.experiences[k][4] 
             #print(self.priorities[i])
 
     def sample_sequence(self, beta=0.4):

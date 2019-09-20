@@ -234,7 +234,7 @@ writer = SummaryWriter()
 
 data = minerl.data.make(
     'MineRLObtainDiamondDense-v0',
-    data_dir="/home/desin/minerl/data")
+    data_dir="/home/darici/minerl/minerl/data")
 
 sequence_len = 32
 sample_len = 1
@@ -264,7 +264,7 @@ def learn_from_buffer():
         if eps_i % 50 == 0:
             print('\nEpisode:{}\t       '.format(eps_i), end="")
             torch.save(agent.actor_local.state_dict(), 'checkpoint_actor.pth')
-        if eps_i >= BUFFER_SIZE/10:
+        if eps_i >= BUFFER_SIZE:
             break
 
 

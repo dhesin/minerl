@@ -452,13 +452,12 @@ class NaivePrioritizedBuffer(object):
         for i in range(len(self.memory)):
             actions = self.memory[i][3]
             actions_len = len(actions[0])
-            self.priorities[i] =  (self.memory[i][4]*actions_len)**3 
+            self.priorities[i] =  (self.memory[i][4]*actions_len)**3
             for j in range(actions_len):
                 if (np.any(actions[:,j])):
                     self.priorities[i] = self.priorities[i] + action_priorities[j] 
                 #for k in range(i-sequence_len, i+1):
                 #    self.priorities[i] = self.priorities[i] + self.experiences[k][4] 
-            #print(self.priorities[i])
 
     def sample_sequence(self, beta=0.4):
         

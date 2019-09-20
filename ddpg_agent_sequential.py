@@ -21,7 +21,7 @@ BUFFER_SIZE = int(5e4)  # replay buffer size
 BATCH_SIZE = 2         # minibatch size
 GAMMA = 1.0            # discount factor
 TAU = 1e-5              # for soft update of target parameters
-LR_ACTOR = 1e-10         # learning rate of the actor 
+LR_ACTOR = 1e-7         # learning rate of the actor 
 LR_CRITIC = 1e-4        # learning rate of the critic
 WEIGHT_DECAY = 0.000   # L2 weight decay
 
@@ -67,20 +67,20 @@ class Agent_TS():
                 {'params':self.actor_local.normalize_mh.parameters()},\
                 {'params':self.actor_local.mh_lstm.parameters()},\
                 {'params':self.actor_local.cnn_mh_inventory_lstm.parameters()},\
-                {'params':self.actor_local.action_modules_lstm['attack'].parameters(), 'lr':1e-9},\
-                {'params':self.actor_local.action_modules_lstm['back'].parameters(), 'lr':1e-9},\
-                {'params':self.actor_local.action_modules_lstm['camera'].parameters(), 'lr':1e-9},\
-                {'params':self.actor_local.action_modules_lstm['craft'].parameters(), 'lr':1e-9},\
-                {'params':self.actor_local.action_modules_lstm['equip'].parameters(), 'lr':1e-9},\
-                {'params':self.actor_local.action_modules_lstm['forward_'].parameters(), 'lr':1e-9},\
-                {'params':self.actor_local.action_modules_lstm['jump'].parameters(), 'lr':1e-10},\
-                {'params':self.actor_local.action_modules_lstm['left'].parameters(), 'lr':1e-9},\
-                {'params':self.actor_local.action_modules_lstm['nearbyCraft'].parameters(), 'lr':1e-9},\
-                {'params':self.actor_local.action_modules_lstm['nearbySmelt'].parameters(), 'lr':1e-9},\
-                {'params':self.actor_local.action_modules_lstm['place'].parameters(), 'lr':1e-9},\
-                {'params':self.actor_local.action_modules_lstm['right'].parameters(), 'lr':1e-9},\
-                {'params':self.actor_local.action_modules_lstm['sneak'].parameters(), 'lr':1e-9},\
-                {'params':self.actor_local.action_modules_lstm['sprint'].parameters(), 'lr':1e-9},\
+                {'params':self.actor_local.action_modules_lstm['attack'].parameters(), 'lr':1e-7},\
+                {'params':self.actor_local.action_modules_lstm['back'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_lstm['camera'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_lstm['craft'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_lstm['equip'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_lstm['forward_'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_lstm['jump'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_lstm['left'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_lstm['nearbyCraft'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_lstm['nearbySmelt'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_lstm['place'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_lstm['right'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_lstm['sneak'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_lstm['sprint'].parameters(), 'lr':1e-6},\
                 {'params':self.actor_local.action_modules_1['attack'].parameters(), 'lr':1e-5},\
                 {'params':self.actor_local.action_modules_1['back'].parameters(), 'lr':1e-5},\
                 {'params':self.actor_local.action_modules_1['camera'].parameters(), 'lr':1e-5},\
@@ -452,7 +452,7 @@ class NaivePrioritizedBuffer(object):
         for i in range(len(self.memory)):
             actions = self.memory[i][3]
             actions_len = len(actions[0])
-            #self.priorities[i] =  (self.memory[i][4])#*actions_len)**2 
+            self.priorities[i] =  (self.memory[i][4]*actions_len)**3 
             for j in range(actions_len):
                 if (np.any(actions[:,j])):
                     self.priorities[i] = self.priorities[i] + action_priorities[j] 

@@ -267,21 +267,21 @@ class Agent_TS():
         #print(rewards)
 
 
-        attack_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,0], gt[:,0])-rewards[:,0].sum()
-        back_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,1], gt[:,1])-rewards[:,1].sum()
-        pitch_loss = F.mse_loss(onehot_probs[:,2], gt[:,2])-rewards[:,2].sum()
-        yaw_loss = F.mse_loss(onehot_probs[:,3], gt[:,3])-rewards[:,3].sum()
-        craft_loss = F.cross_entropy(onehot_probs[:,4:9], gt[:,4].long())-rewards[:,4].sum()
-        equip_loss = F.cross_entropy(onehot_probs[:,9:17], gt[:,5].long())-rewards[:,5].sum()
-        forward_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,17], gt[:,6])-rewards[:,6].sum()
-        jump_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,18], gt[:,7])-rewards[:,7].sum()
-        left_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,19], gt[:,8])-rewards[:,8].sum()
-        nearby_craft_loss = F.cross_entropy(onehot_probs[:,20:28], gt[:,9].long())-rewards[:,9].sum()
-        nearby_smelt_loss = F.cross_entropy(onehot_probs[:,28:31], gt[:,10].long())-rewards[:,10].sum()
-        place_loss = F.cross_entropy(onehot_probs[:,31:38], gt[:,11].long())-rewards[:,11].sum()
-        right_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,38], gt[:,12])-rewards[:,12].sum()
-        sneak_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,39], gt[:,13])-rewards[:,13].sum()
-        sprint_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,40], gt[:,14])-rewards[:,14].sum()
+        attack_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,0], gt[:,0])-rewards[:,-1].sum()
+        back_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,1], gt[:,1])-rewards[:,-1].sum()
+        pitch_loss = F.mse_loss(onehot_probs[:,2], gt[:,2])-rewards[:,-1].sum()
+        yaw_loss = F.mse_loss(onehot_probs[:,3], gt[:,3])-rewards[:,-1].sum()
+        craft_loss = F.cross_entropy(onehot_probs[:,4:9], gt[:,4].long())-rewards[:,-1].sum()
+        equip_loss = F.cross_entropy(onehot_probs[:,9:17], gt[:,5].long())-rewards[:,-1].sum()
+        forward_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,17], gt[:,6])-rewards[:,-1].sum()
+        jump_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,18], gt[:,7])-rewards[:,-1].sum()
+        left_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,19], gt[:,8])-rewards[:,-1].sum()
+        nearby_craft_loss = F.cross_entropy(onehot_probs[:,20:28], gt[:,9].long())-rewards[:,-1].sum()
+        nearby_smelt_loss = F.cross_entropy(onehot_probs[:,28:31], gt[:,10].long())-rewards[:,-1].sum()
+        place_loss = F.cross_entropy(onehot_probs[:,31:38], gt[:,11].long())-rewards[:,-1].sum()
+        right_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,38], gt[:,12])-rewards[:,-1].sum()
+        sneak_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,39], gt[:,13])-rewards[:,-1].sum()
+        sprint_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,40], gt[:,14])-rewards[:,-1].sum()
         q_diff_loss = F.mse_loss(q_exp, q_current)
         q_loss = -q_current.sum()
         
@@ -424,7 +424,6 @@ class NaivePrioritizedBuffer(object):
             prios = self.priorities[:self.pos]
         
         probs  = prios ** self.prob_alpha
-        probs  = prios
         probs /= probs.sum()
         
         #indices = np.random.choice(len(self.memory), self.batch_size, p=probs)
@@ -434,6 +433,7 @@ class NaivePrioritizedBuffer(object):
     
     def update_priorities(self):
 
+        self.priorities = np.zeros((self.capacity,), dtype=np.float32)
         action_priorities = np.zeros(len(self.memory[0][3][0]))
 
         print(action_priorities.shape)
@@ -452,7 +452,7 @@ class NaivePrioritizedBuffer(object):
         for i in range(len(self.memory)):
             actions = self.memory[i][3]
             actions_len = len(actions[0])
-            self.priorities[i] =  (self.memory[i][4]*actions_len)**3
+            self.priorities[i] =  (self.memory[i][4]*actions_len) ** 3
             for j in range(actions_len):
                 if (np.any(actions[:,j])):
                     self.priorities[i] = self.priorities[i] + action_priorities[j] 

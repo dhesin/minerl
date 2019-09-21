@@ -18,7 +18,7 @@ import torch.optim as optim
 import torchvision.transforms as transforms
 
 BUFFER_SIZE = int(5e4)  # replay buffer size
-BATCH_SIZE = 2         # minibatch size
+BATCH_SIZE = 8         # minibatch size
 GAMMA = 1.0            # discount factor
 TAU = 1e-5              # for soft update of target parameters
 LR_ACTOR = 1e-7         # learning rate of the actor 
@@ -264,7 +264,7 @@ class Agent_TS():
         #    rewards[i,:] = rewards[i,:]+b_r[i]
         #rewards = rewards.view(-1)
 
-        #print(rewards)
+        #print(rewards.shape)
 
 
         attack_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,0], gt[:,0])-rewards[:,-1].sum()
@@ -303,10 +303,10 @@ class Agent_TS():
         if q_exp is None and q_current is None:
             torch.autograd.backward([attack_loss,back_loss,pitch_loss,yaw_loss,craft_loss,equip_loss,\
                     forward_loss,jump_loss,left_loss,nearby_craft_loss,nearby_smelt_loss,place_loss, \
-                    right_loss,sneak_loss, sprint_loss])
+                    right_loss,sneak_loss, sprint_loss, q_diff_loss, q_loss])
         else:
 
-            #writer.add_scalars('Q Values_', {"Q Value":q_loss, "Q Difference":q_diff_loss}, global_step=self.iter)
+            writer.add_scalars('Q Values_', {"Q Value":q_loss, "Q Difference":q_diff_loss}, global_step=self.iter)
 
             torch.autograd.backward([attack_loss,back_loss,pitch_loss,yaw_loss,craft_loss,equip_loss,\
                     forward_loss,jump_loss,left_loss,nearby_craft_loss,nearby_smelt_loss,place_loss, \
@@ -357,10 +357,10 @@ class Agent_TS():
         #get next state (from experiences) descriptors and Q_next
         with torch.no_grad():
             _, _, _, Q_next = self.actor_local(a_next_states_mh, w_next_states, a_next_states_invent)    
-            Q_next = Q_next.detach()
+            Q_next = Q_next[:,-1].detach()
 
 
-        rewards = self.actor_local.normalize_rewards(rewards)
+        #rewards = self.actor_local.normalize_rewards(rewards)
         #for i in range(rewards.shape[0]):
         #    rewards[i,:] = rewards[i,:] + rewards[i].sum()
 
@@ -368,9 +368,10 @@ class Agent_TS():
 
         # predict actions and next state with 
         _, action_raw, action_logits, Q_current = self.actor_local(a_states_mh, w_states, a_states_invent)
+        Q_current = Q_current[:,-1]
 
 
-        loss_1, loss_2 = self.get_action_loss(writer, actions[:,-1,:].unsqueeze(dim=1), action_logits, Q_current_2, Q_current, rewards)
+        loss_1, loss_2 = self.get_action_loss(writer, actions[:,-1,:].unsqueeze(dim=1), action_logits[:,-1,:].unsqueeze(dim=1), Q_current_2, Q_current, rewards)
 
 
         for i in range(action_raw.shape[0]):
@@ -388,10 +389,11 @@ class Agent_TS():
 
     
 class NaivePrioritizedBuffer(object):
-    def __init__(self, capacity, batch_size, seed, prob_alpha=1.0):
+    def __init__(self, capacity, batch_size, seed, prob_alpha=0.6):
         self.prob_alpha = prob_alpha
         self.capacity   = capacity
         self.memory     = []
+        self.lottery    = []
         self.pos        = 0
         self.priorities = np.zeros((capacity,), dtype=np.float32)
         self.batch_size = batch_size
@@ -400,19 +402,20 @@ class NaivePrioritizedBuffer(object):
     
     def add(self, experiences):
 
-        #if len(experiences[0])<32:
-        #    return
-
-        #if (experiences[4].sum() < 1 and random.random() <= 0.05):
-        #    return
-   
         if len(self.memory) < self.capacity:
             print("event memory capacity below:{}".format(experiences[4].sum().item()))
             self.memory.append(experiences)
         else:
             self.memory[self.pos] = experiences
 
-        #self.priorities[self.pos] = self.priorities[self.pos] + experiences[4].sum()+0.1
+        self.priorities[self.pos] = experiences[4]+0.01
+
+        if (random.random()<0.005 and experiences[4] < 1):
+            self.lottery.append(self.pos)
+        elif self.pos >= 32:
+            self.lottery.append(self.pos)
+
+
         self.pos = (self.pos + 1) % self.capacity
 
     
@@ -452,26 +455,25 @@ class NaivePrioritizedBuffer(object):
         for i in range(len(self.memory)):
             actions = self.memory[i][3]
             actions_len = len(actions[0])
-            self.priorities[i] =  (self.memory[i][4]*actions_len) ** 3
-            for j in range(actions_len):
-                if (np.any(actions[:,j])):
-                    self.priorities[i] = self.priorities[i] + action_priorities[j] 
+            self.priorities[i] =  ((self.memory[i][4]))#*actions_len)*(self.memory[i][4]*actions_len))
+            #for j in range(actions_len):
+            #    if (np.any(actions[:,j])):
+            #        self.priorities[i] = self.priorities[i] + action_priorities[j] 
                 #for k in range(i-sequence_len, i+1):
                 #    self.priorities[i] = self.priorities[i] + self.experiences[k][4] 
 
     def sample_sequence(self, beta=0.4):
         
-        if len(self.memory) == self.capacity:
-            prios = self.priorities[32,:]
-        else:
-            prios = self.priorities[32:self.pos]
+        # if len(self.memory) == self.capacity:
+        #     prios = self.priorities[32,:]
+        # else:
+        #     prios = self.priorities[32:self.pos]
         
-        #probs  = prios ** self.prob_alpha
-        probs  = prios
-        probs /= probs.sum()
+        # probs  = prios ** 4#self.prob_alpha
+        # probs = probs/probs.sum()
         
-        #indices = np.random.choice(len(self.memory), self.batch_size, p=probs)
-        indices = np.random.choice(np.arange(32,len(self.memory)), self.batch_size, False, p=probs)
+        # #indices = np.random.choice(len(self.memory), self.batch_size, p=probs)
+        # indices = np.random.choice(np.arange(32,len(self.memory)), self.batch_size, False, p=probs)
 
 
 
@@ -487,7 +489,9 @@ class NaivePrioritizedBuffer(object):
             ts_6 = []
             ts_7 = []
             ts_8 = []
-            idx = indices[i]
+            assert(self.indice_index<=len(self.sampled_indices))
+            idx = self.sampled_indices[self.indice_index]
+            self.indice_index +=1
             for j in range(32):
                 ts_0.append(self.memory[idx-32+j][0])
                 ts_1.append(self.memory[idx-32+j][1])
@@ -513,5 +517,46 @@ class NaivePrioritizedBuffer(object):
 
         return experiences
     
+    def sample_4_multiple_batch(self, num_batches):
+        
+
+        action_priorities = np.zeros(len(self.memory[0][3][0]))
+
+        print(action_priorities.shape)
+
+        for i in range(len(self.memory)):
+            actions = self.memory[i][3]
+            actions_len = len(actions[0])
+            for j in range(actions_len) :
+                if np.any(actions[:,j]):
+                    action_priorities[j] = action_priorities[j]+1
+
+        action_priorities = len(self.memory)/(action_priorities**2 + 0.1)
+        #action_priorities = action_priorities ** 2#self.prob_alpha
+        print(action_priorities)
+
+        for i in range(len(self.memory)):
+            actions = self.memory[i][3]
+            actions_len = len(actions[0])
+            for j in range(actions_len):
+                if (np.any(actions[:,j])):
+                    self.priorities[i] = self.priorities[i] + action_priorities[j] 
+
+
+        if len(self.memory) == self.capacity:
+            prios = self.priorities[32,:]
+        else:
+            prios = self.priorities[32:self.pos]
+        
+        prios = self.priorities[self.lottery]
+        probs  = prios#self.prob_alpha
+        probs = probs/probs.sum()
+        
+        #indices = np.random.choice(len(self.memory), self.batch_size, p=probs)
+        assert(len(self.lottery) >= int(num_batches)*self.batch_size)
+        self.sampled_indices = np.random.choice(self.lottery, int(num_batches)*self.batch_size, False, p=probs)
+        self.indice_index = 0
+
+
     def __len__(self):
         return len(self.memory)        

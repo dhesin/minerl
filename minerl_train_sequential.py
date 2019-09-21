@@ -18,6 +18,7 @@ from PIL import Image
 import ddpg_agent_sequential
 reload(ddpg_agent_sequential)
 from ddpg_agent_sequential import Agent_TS
+from ddpg_agent_sequential import BATCH_SIZE
 
 
 #logging.basicConfig(level=logging.DEBUG)
@@ -234,11 +235,12 @@ writer = SummaryWriter()
 
 data = minerl.data.make(
     'MineRLObtainDiamondDense-v0',
-    data_dir="/home/desin/minerl/data")
+    data_dir="/home/darici/minerl/minerl/data")
 
 sequence_len = 32
 sample_len = 1
 BUFFER_SIZE = int(1000)  # replay buffer size
+BUFFER_USE_RATIO = 0.2
 #agent = Agent_TS(agent_mh_size = 3, agent_inventory_size = 18, \
 #        world_state_size = [3, 32, 64, 64], action_size=14, \
 #        random_seed=0, seq_len = sequence_len, actor_chkpt_file="checkpoint_actor.pth")
@@ -250,7 +252,7 @@ agent = Agent_TS(agent_mh_size = 3, agent_inventory_size = 18, \
 
 
 
-def learn_from_buffer():
+def learn_from_buffer(num_batches):
     # Learn without the environment
     eps_i=0
     while True:
@@ -261,10 +263,9 @@ def learn_from_buffer():
         print("stepping")
         agent.actor_scheduler.step()
 
-        if eps_i % 50 == 0:
+        if eps_i >= num_batches:
             print('\nEpisode:{}\t       '.format(eps_i), end="")
             torch.save(agent.actor_local.state_dict(), 'checkpoint_actor.pth')
-        if eps_i >= BUFFER_SIZE:
             break
 
 
@@ -276,9 +277,12 @@ for epoch in range(10):
         agent.memory.add(experiences)
         print("memory size:{}".format(len(agent.memory.memory)))
         if (len(agent.memory.memory) >= BUFFER_SIZE):
-            agent.memory.update_priorities()
-            learn_from_buffer()
+            #agent.memory.update_priorities()
+            num_batches = int(BUFFER_USE_RATIO*BUFFER_SIZE/BATCH_SIZE)
+            agent.memory.sample_4_multiple_batch(num_batches)
+            learn_from_buffer(num_batches)
             agent.memory.memory.clear()
+            agent.memory.lottery.clear()
             agent.memory.pos = 0
 
 

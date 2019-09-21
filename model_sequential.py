@@ -39,7 +39,7 @@ class Actor_TS(nn.Module):
         self.cnn = nn.Sequential()
         self.cnn.add_module('norm1', nn.BatchNorm3d(n_c))
         self.cnn.add_module('relu1', nn.ReLU(inplace=True))
-        self.cnn.add_module('conv1', nn.Conv3d(n_c, growth_rate, kernel_size=(1,1,1), stride=1, bias=False))
+        self.cnn.add_module('conv1', nn.Conv3d(n_c, growth_rate, kernel_size=(self.seq_len,1,1), stride=1, bias=False))
         self.cnn.add_module('norm2', nn.BatchNorm3d(growth_rate))
         self.cnn.add_module('relu2', nn.ReLU(inplace=True))
         self.cnn.add_module('conv2', nn.Conv3d(growth_rate, growth_rate, kernel_size=(1,3,3), stride=1, padding=(0,1,1), bias=False))
@@ -141,7 +141,7 @@ class Actor_TS(nn.Module):
        
         self.normalize_rewards = nn.LayerNorm(self.seq_len)
 
-        self.normalize_q_value = nn.BatchNorm1d(self.seq_len)
+        self.normalize_q_value = nn.BatchNorm1d(1)
         self.qvalue_lstm = torch.nn.LSTM(80+action_size+1, 1, num_layers=2, batch_first=True, bias=False)  
         self.qvalue_lstm_2 = torch.nn.LSTM(80+action_size+1, 1, num_layers=2, batch_first=True, bias=False)  
 
@@ -251,8 +251,8 @@ class Actor_TS(nn.Module):
         h0, c0 = self.init_hidden(batch_size, num_layers, 20)
         agent_state_mh, (hidden, cell) = self.mh_lstm(agent_state_mh, (h0, c0))
 
-        #combined_state = torch.cat([world_state, agent_state_mh[:,-1,:].unsqueeze(dim=1), agent_state_inventory[:,-1,:].unsqueeze(dim=1)], 2)
-        combined_state = torch.cat([world_state, agent_state_mh, agent_state_inventory], 2)
+        combined_state = torch.cat([world_state, agent_state_mh[:,-1,:].unsqueeze(dim=1), agent_state_inventory[:,-1,:].unsqueeze(dim=1)], 2)
+        #combined_state = torch.cat([world_state, agent_state_mh, agent_state_inventory], 2)
 
         h0, c0 = self.init_hidden(batch_size, num_layers, 80)
         combined_state, (hidden, cell) = self.cnn_mh_inventory_lstm(combined_state, (h0, c0)) 
@@ -269,9 +269,9 @@ class Actor_TS(nn.Module):
             out, (hidden, cell) = self.action_modules_lstm[action](combined_state, (h0, c0))
             #out = self.action_modules_1[action](combined_state)
             out = self.activation_modules[action](out)
-            if not self.activation_modules.training:
-                noise = np.random.normal(scale=0.05, size=out.shape)
-                out = out + torch.tensor(noise).float().to(device)
+            #if not self.activation_modules.training:
+            #    noise = np.random.normal(scale=0.05, size=out.shape)
+            #    out = out + torch.tensor(noise).float().to(device)
             
             
             

@@ -18,7 +18,7 @@ import torch.optim as optim
 import torchvision.transforms as transforms
 
 BUFFER_SIZE = int(5e4)  # replay buffer size
-BATCH_SIZE = 8         # minibatch size
+BATCH_SIZE = 4         # minibatch size
 GAMMA = 1.0            # discount factor
 TAU = 1e-5              # for soft update of target parameters
 LR_ACTOR = 1e-7         # learning rate of the actor 
@@ -357,10 +357,11 @@ class Agent_TS():
         #get next state (from experiences) descriptors and Q_next
         with torch.no_grad():
             _, _, _, Q_next = self.actor_local(a_next_states_mh, w_next_states, a_next_states_invent)    
-            Q_next = Q_next[:,-1].detach()
+            #Q_next = Q_next[:,-1].detach()
+            Q_next = Q_next.detach()
 
 
-        #rewards = self.actor_local.normalize_rewards(rewards)
+        rewards = self.actor_local.normalize_rewards(rewards)
         #for i in range(rewards.shape[0]):
         #    rewards[i,:] = rewards[i,:] + rewards[i].sum()
 
@@ -368,10 +369,11 @@ class Agent_TS():
 
         # predict actions and next state with 
         _, action_raw, action_logits, Q_current = self.actor_local(a_states_mh, w_states, a_states_invent)
-        Q_current = Q_current[:,-1]
+        #Q_current = Q_current[:,-1]
 
 
-        loss_1, loss_2 = self.get_action_loss(writer, actions[:,-1,:].unsqueeze(dim=1), action_logits[:,-1,:].unsqueeze(dim=1), Q_current_2, Q_current, rewards)
+        #loss_1, loss_2 = self.get_action_loss(writer, actions[:,-1,:].unsqueeze(dim=1), action_logits[:,-1,:].unsqueeze(dim=1), Q_current_2, Q_current, rewards)
+        loss_1, loss_2 = self.get_action_loss(writer, actions[:,-1,:].unsqueeze(dim=1), action_logits, Q_current_2, Q_current, rewards)
 
 
         for i in range(action_raw.shape[0]):

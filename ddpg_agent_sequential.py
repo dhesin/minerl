@@ -21,7 +21,7 @@ BUFFER_SIZE = int(5e4)  # replay buffer size
 BATCH_SIZE = 4         # minibatch size
 GAMMA = 1.0            # discount factor
 TAU = 1e-5              # for soft update of target parameters
-LR_ACTOR = 1e-7         # learning rate of the actor 
+LR_ACTOR = 1e-4         # learning rate of the actor 
 LR_CRITIC = 1e-4        # learning rate of the critic
 WEIGHT_DECAY = 0.000   # L2 weight decay
 
@@ -67,20 +67,20 @@ class Agent_TS():
                 {'params':self.actor_local.normalize_mh.parameters()},\
                 {'params':self.actor_local.mh_lstm.parameters()},\
                 {'params':self.actor_local.cnn_mh_inventory_lstm.parameters()},\
-                {'params':self.actor_local.action_modules_lstm['attack'].parameters(), 'lr':1e-7},\
-                {'params':self.actor_local.action_modules_lstm['back'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_lstm['camera'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_lstm['craft'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_lstm['equip'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_lstm['forward_'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_lstm['jump'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_lstm['left'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_lstm['nearbyCraft'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_lstm['nearbySmelt'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_lstm['place'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_lstm['right'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_lstm['sneak'].parameters(), 'lr':1e-6},\
-                {'params':self.actor_local.action_modules_lstm['sprint'].parameters(), 'lr':1e-6},\
+                {'params':self.actor_local.action_modules_lstm['attack'].parameters(), 'lr':1e-4},\
+                {'params':self.actor_local.action_modules_lstm['back'].parameters(), 'lr':1e-4},\
+                {'params':self.actor_local.action_modules_lstm['camera'].parameters(), 'lr':1e-4},\
+                {'params':self.actor_local.action_modules_lstm['craft'].parameters(), 'lr':1e-4},\
+                {'params':self.actor_local.action_modules_lstm['equip'].parameters(), 'lr':1e-4},\
+                {'params':self.actor_local.action_modules_lstm['forward_'].parameters(), 'lr':1e-4},\
+                {'params':self.actor_local.action_modules_lstm['jump'].parameters(), 'lr':1e-4},\
+                {'params':self.actor_local.action_modules_lstm['left'].parameters(), 'lr':1e-4},\
+                {'params':self.actor_local.action_modules_lstm['nearbyCraft'].parameters(), 'lr':1e-4},\
+                {'params':self.actor_local.action_modules_lstm['nearbySmelt'].parameters(), 'lr':1e-4},\
+                {'params':self.actor_local.action_modules_lstm['place'].parameters(), 'lr':1e-4},\
+                {'params':self.actor_local.action_modules_lstm['right'].parameters(), 'lr':1e-4},\
+                {'params':self.actor_local.action_modules_lstm['sneak'].parameters(), 'lr':1e-4},\
+                {'params':self.actor_local.action_modules_lstm['sprint'].parameters(), 'lr':1e-4},\
                 {'params':self.actor_local.action_modules_1['attack'].parameters(), 'lr':1e-5},\
                 {'params':self.actor_local.action_modules_1['back'].parameters(), 'lr':1e-5},\
                 {'params':self.actor_local.action_modules_1['camera'].parameters(), 'lr':1e-5},\
@@ -267,21 +267,21 @@ class Agent_TS():
         #print(rewards.shape)
 
 
-        attack_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,0], gt[:,0])-rewards[:,-1].sum()
-        back_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,1], gt[:,1])-rewards[:,-1].sum()
-        pitch_loss = F.mse_loss(onehot_probs[:,2], gt[:,2])-rewards[:,-1].sum()
-        yaw_loss = F.mse_loss(onehot_probs[:,3], gt[:,3])-rewards[:,-1].sum()
-        craft_loss = F.cross_entropy(onehot_probs[:,4:9], gt[:,4].long())-rewards[:,-1].sum()
-        equip_loss = F.cross_entropy(onehot_probs[:,9:17], gt[:,5].long())-rewards[:,-1].sum()
-        forward_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,17], gt[:,6])-rewards[:,-1].sum()
-        jump_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,18], gt[:,7])-rewards[:,-1].sum()
-        left_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,19], gt[:,8])-rewards[:,-1].sum()
-        nearby_craft_loss = F.cross_entropy(onehot_probs[:,20:28], gt[:,9].long())-rewards[:,-1].sum()
-        nearby_smelt_loss = F.cross_entropy(onehot_probs[:,28:31], gt[:,10].long())-rewards[:,-1].sum()
-        place_loss = F.cross_entropy(onehot_probs[:,31:38], gt[:,11].long())-rewards[:,-1].sum()
-        right_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,38], gt[:,12])-rewards[:,-1].sum()
-        sneak_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,39], gt[:,13])-rewards[:,-1].sum()
-        sprint_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,40], gt[:,14])-rewards[:,-1].sum()
+        attack_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,0], gt[:,0])#-rewards[:,-1].sum()
+        back_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,1], gt[:,1])#-rewards[:,-1].sum()
+        pitch_loss = F.mse_loss(onehot_probs[:,2], gt[:,2])#-rewards[:,-1].sum()
+        yaw_loss = F.mse_loss(onehot_probs[:,3], gt[:,3])#-rewards[:,-1].sum()
+        craft_loss = F.cross_entropy(onehot_probs[:,4:9], gt[:,4].long())#-rewards[:,-1].sum()
+        equip_loss = F.cross_entropy(onehot_probs[:,9:17], gt[:,5].long())#-rewards[:,-1].sum()
+        forward_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,17], gt[:,6])#-rewards[:,-1].sum()
+        jump_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,18], gt[:,7])#-rewards[:,-1].sum()
+        left_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,19], gt[:,8])#-rewards[:,-1].sum()
+        nearby_craft_loss = F.cross_entropy(onehot_probs[:,20:28], gt[:,9].long())#-rewards[:,-1].sum()
+        nearby_smelt_loss = F.cross_entropy(onehot_probs[:,28:31], gt[:,10].long())#-rewards[:,-1].sum()
+        place_loss = F.cross_entropy(onehot_probs[:,31:38], gt[:,11].long())#-rewards[:,-1].sum()
+        right_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,38], gt[:,12])#-rewards[:,-1].sum()
+        sneak_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,39], gt[:,13])#-rewards[:,-1].sum()
+        sprint_loss = F.binary_cross_entropy_with_logits(onehot_probs[:,40], gt[:,14])#-rewards[:,-1].sum()
         q_diff_loss = F.mse_loss(q_exp, q_current)
         q_loss = -q_current.sum()
         

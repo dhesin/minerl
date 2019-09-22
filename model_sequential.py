@@ -101,12 +101,12 @@ class Actor_TS(nn.Module):
             'place':7, 'right':1, 'sneak':1, 'sprint':1}       
 
         self.activation_modules = nn.ModuleDict({
-            'attack': nn.Tanh(),
+            'attack': nn.Tanhshrink(),
             'back': nn.ReLU(),
             'camera': nn.Tanhshrink(),
             'craft': nn.ReLU(),
             'equip': nn.ReLU(),
-            'forward_': nn.Tanh(),
+            'forward_': nn.ReLU(),
             'jump': nn.ReLU(),
             'left': nn.ReLU(),
             'nearbyCraft': nn.ReLU(),

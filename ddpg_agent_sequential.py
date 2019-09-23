@@ -18,7 +18,7 @@ import torch.optim as optim
 import torchvision.transforms as transforms
 
 BUFFER_SIZE = int(5e4)  # replay buffer size
-BATCH_SIZE = 4         # minibatch size
+BATCH_SIZE = 2         # minibatch size
 GAMMA = 1.0            # discount factor
 TAU = 1e-5              # for soft update of target parameters
 LR_ACTOR = 1e-4         # learning rate of the actor 
@@ -61,40 +61,26 @@ class Agent_TS():
         self.actor_target = Actor_TS(self.agent_mh_size, self.agent_inventory_size,\
                 self.world_state_size, self.action_size, self.seed, self.seq_len).to(device)
         self.actor_optimizer = optim.Adam([{'params':self.actor_local.cnn.parameters()},\
-                {'params':self.actor_local.pov_lstm.parameters()},\
                 {'params':self.actor_local.normalize_inventory.parameters()},\
                 {'params':self.actor_local.inventory_lstm.parameters()},\
                 {'params':self.actor_local.normalize_mh.parameters()},\
                 {'params':self.actor_local.mh_lstm.parameters()},\
-                {'params':self.actor_local.cnn_mh_inventory_lstm.parameters()},\
-                {'params':self.actor_local.action_modules_lstm['attack'].parameters(), 'lr':1e-4},\
-                {'params':self.actor_local.action_modules_lstm['back'].parameters(), 'lr':1e-4},\
-                {'params':self.actor_local.action_modules_lstm['camera'].parameters(), 'lr':1e-4},\
-                {'params':self.actor_local.action_modules_lstm['craft'].parameters(), 'lr':1e-4},\
-                {'params':self.actor_local.action_modules_lstm['equip'].parameters(), 'lr':1e-4},\
-                {'params':self.actor_local.action_modules_lstm['forward_'].parameters(), 'lr':1e-4},\
-                {'params':self.actor_local.action_modules_lstm['jump'].parameters(), 'lr':1e-4},\
-                {'params':self.actor_local.action_modules_lstm['left'].parameters(), 'lr':1e-4},\
-                {'params':self.actor_local.action_modules_lstm['nearbyCraft'].parameters(), 'lr':1e-4},\
-                {'params':self.actor_local.action_modules_lstm['nearbySmelt'].parameters(), 'lr':1e-4},\
-                {'params':self.actor_local.action_modules_lstm['place'].parameters(), 'lr':1e-4},\
-                {'params':self.actor_local.action_modules_lstm['right'].parameters(), 'lr':1e-4},\
-                {'params':self.actor_local.action_modules_lstm['sneak'].parameters(), 'lr':1e-4},\
-                {'params':self.actor_local.action_modules_lstm['sprint'].parameters(), 'lr':1e-4},\
-                {'params':self.actor_local.action_modules_1['attack'].parameters(), 'lr':1e-5},\
-                {'params':self.actor_local.action_modules_1['back'].parameters(), 'lr':1e-5},\
-                {'params':self.actor_local.action_modules_1['camera'].parameters(), 'lr':1e-5},\
-                {'params':self.actor_local.action_modules_1['craft'].parameters(), 'lr':1e-5},\
-                {'params':self.actor_local.action_modules_1['equip'].parameters(), 'lr':1e-5},\
-                {'params':self.actor_local.action_modules_1['forward_'].parameters(), 'lr':1e-5},\
-                {'params':self.actor_local.action_modules_1['jump'].parameters(), 'lr':1e-5},
-                {'params':self.actor_local.action_modules_1['left'].parameters(), 'lr':1e-5},\
-                {'params':self.actor_local.action_modules_1['nearbyCraft'].parameters(), 'lr':1e-5},\
-                {'params':self.actor_local.action_modules_1['nearbySmelt'].parameters(), 'lr':1e-5},\
-                {'params':self.actor_local.action_modules_1['place'].parameters(), 'lr':1e-5},\
-                {'params':self.actor_local.action_modules_1['right'].parameters(), 'lr':1e-5},\
-                {'params':self.actor_local.action_modules_1['sneak'].parameters(), 'lr':1e-5},\
-                {'params':self.actor_local.action_modules_1['sprint'].parameters(), 'lr':1e-5},\
+                {'params':self.actor_local.cnn_mh_inventory.parameters()},\
+                {'params':self.actor_local.output_action_modules['attack'].parameters(), 'lr':1e-4},\
+                {'params':self.actor_local.output_action_modules['back'].parameters(), 'lr':1e-4},\
+                {'params':self.actor_local.output_action_modules['camera'].parameters(), 'lr':1e-4},\
+                {'params':self.actor_local.output_action_modules['craft'].parameters(), 'lr':1e-4},\
+                {'params':self.actor_local.output_action_modules['equip'].parameters(), 'lr':1e-4},\
+                {'params':self.actor_local.output_action_modules['forward_'].parameters(), 'lr':1e-4},\
+                {'params':self.actor_local.output_action_modules['jump'].parameters(), 'lr':1e-4},
+                {'params':self.actor_local.output_action_modules['left'].parameters(), 'lr':1e-4},\
+                {'params':self.actor_local.output_action_modules['nearbyCraft'].parameters(), 'lr':1e-4},\
+                {'params':self.actor_local.output_action_modules['nearbySmelt'].parameters(), 'lr':1e-4},\
+                {'params':self.actor_local.output_action_modules['place'].parameters(), 'lr':1e-4},\
+                {'params':self.actor_local.output_action_modules['right'].parameters(), 'lr':1e-4},\
+                {'params':self.actor_local.output_action_modules['sneak'].parameters(), 'lr':1e-4},\
+                {'params':self.actor_local.output_action_modules['sprint'].parameters(), 'lr':1e-4},\
+                {'params':self.actor_local.qvalue.parameters(), 'lr':1e-5},\
                 ], lr=LR_ACTOR)
         #self.actor_optimizer = optim.Adam(self.actor_local.parameters())
         self.actor_scheduler = optim.lr_scheduler.StepLR(self.actor_optimizer, step_size=1000, gamma=0.99)
@@ -254,7 +240,7 @@ class Agent_TS():
     def get_action_loss(self, writer, gt, onehot_probs, q_exp, q_current, rewards):
 
         
-        onehot_probs = onehot_probs[:,-1,:]
+        #onehot_probs = onehot_probs[:,-1,:]
         gt = gt[:,-1,:]
         onehot_probs = onehot_probs.view(-1,41)
         gt = gt.view(-1,15)
@@ -377,9 +363,9 @@ class Agent_TS():
 
 
         for i in range(action_raw.shape[0]):
-            for k in range(action_raw.shape[2]):
+            for k in range(action_raw.shape[1]):
                 label = "Action_" + action_names[k] + "_"
-                writer.add_scalars(label, {"GT":actions[i,-1,k], "Run":action_raw[i,-1,k]}, global_step=self.iter_2)
+                writer.add_scalars(label, {"GT":actions[i,-1,k], "Run":action_raw[i,k]}, global_step=self.iter_2)
             self.iter_2 = self.iter_2+1
 
 

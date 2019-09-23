@@ -235,7 +235,7 @@ writer = SummaryWriter()
 
 data = minerl.data.make(
     'MineRLObtainDiamondDense-v0',
-    data_dir="/home/darici/minerl/minerl/data")
+    data_dir="/home/desin/minerl/data")
 
 sequence_len = 32
 sample_len = 1

@@ -38,15 +38,13 @@ class Actor_TS(nn.Module):
          
         # agent's pov
         self.cnn = nn.Sequential()
-        self.cnn.add_module('norm1', nn.BatchNorm3d(n_c))
-        self.cnn.add_module('conv1', nn.Conv3d(n_c, growth_rate, kernel_size=(1,1,1), stride=1, bias=False))
+        self.cnn.add_module('norm1', nn.BatchNorm3d(n_c))        
+        self.cnn.add_module('conv1', nn.Conv3d(n_c, growth_rate, kernel_size=(1,3,3), stride=1, padding=(0,1,1), bias=False))
         self.cnn.add_module('relu1', nn.ReLU(inplace=True))
-        self.cnn.add_module('norm2', nn.BatchNorm3d(growth_rate))
-        self.cnn.add_module('conv2', nn.Conv3d(growth_rate, growth_rate, kernel_size=(1,3,3), stride=1, padding=(0,1,1), bias=False))
+        self.cnn.add_module('norm2', nn.BatchNorm3d(growth_rate))        
+        self.cnn.add_module('conv2', nn.Conv3d(growth_rate, growth_rate, kernel_size=(self.seq_len,1,1), stride=1, bias=False))
         self.cnn.add_module('relu2', nn.ReLU(inplace=True))
-        self.cnn.add_module('norm3', nn.BatchNorm3d(growth_rate))        
-        self.cnn.add_module('conv3', nn.Conv3d(growth_rate, growth_rate, kernel_size=(self.seq_len,1,1), stride=1, bias=False))
-        self.cnn.add_module('relu3', nn.ReLU(inplace=True))
+        self.cnn.add_module('norm3', nn.BatchNorm3d(growth_rate))
         self.cnn.add_module('pool1', nn.AvgPool3d(kernel_size=(1,i_h,i_w), stride=(1,1,1)))
 
 
@@ -64,36 +62,40 @@ class Actor_TS(nn.Module):
 
 
         self.normalize_inventory = nn.BatchNorm1d(self.seq_len)
-        self.inventory_lstm = torch.nn.LSTM(agent_inventory_size, 60, num_layers=2, batch_first=True, bias=False)  
+        self.inventory_lstm = torch.nn.LSTM(agent_inventory_size, 100, num_layers=2, batch_first=True, bias=False)  
         
         self.normalize_mh = nn.BatchNorm1d(self.seq_len)
         self.mh_lstm = torch.nn.LSTM(agent_mh_size, 20, num_layers=2, batch_first=True, bias=False)  
 
  
         self.cnn_mh_inventory = nn.Sequential()
-        self.cnn_mh_inventory.add_module('norm', nn.LayerNorm(growth_rate+80))
-        self.cnn_mh_inventory.add_module('linear1', nn.Linear(growth_rate+80, 100, bias=False))
+        self.cnn_mh_inventory.add_module('norm', nn.BatchNorm1d(growth_rate+120))
+        self.cnn_mh_inventory.add_module('linear1', nn.Linear(growth_rate+120, 200, bias=False))
         self.cnn_mh_inventory.add_module('relu1', nn.ReLU(inplace=True))
-        self.cnn_mh_inventory.add_module('linear2', nn.Linear(100, 20, bias=False))
+        self.cnn_mh_inventory.add_module('norm2', nn.BatchNorm1d(200))
+        self.cnn_mh_inventory.add_module('linear2', nn.Linear(200, 100, bias=False))
         self.cnn_mh_inventory.add_module('relu2', nn.ReLU(inplace=True))
+        self.cnn_mh_inventory.add_module('norm3', nn.BatchNorm1d(100))
+        self.cnn_mh_inventory.add_module('linear3', nn.Linear(100, 50, bias=False))
+        self.cnn_mh_inventory.add_module('relu3', nn.ReLU(inplace=True))
         #self.cnn_mh_inventory_lstm.register_backward_hook(self.back_hook) 
               
-        self.normalize_action_inputs = nn.LayerNorm(20)
+        self.normalize_action_inputs = nn.BatchNorm1d(50)
         self.output_action_modules = nn.ModuleDict({
-            'attack': nn.Linear(20,1, bias=False),
-            'back': nn.Linear(20,1, bias=False),
-            'camera': nn.Linear(20,2, bias=False),
-            'craft': nn.Linear(20,5, bias=False),
-            'equip': nn.Linear(20,8, bias=False),
-            'forward_': nn.Linear(20,1, bias=False),
-            'jump': nn.Linear(20,1, bias=False),
-            'left': nn.Linear(20,1, bias=False),
-            'nearbyCraft': nn.Linear(20,8, bias=False),
-            'nearbySmelt': nn.Linear(20,3, bias=False),
-            'place': nn.Linear(20,7, bias=False),
-            'right': nn.Linear(20,1, bias=False),
-            'sneak': nn.Linear(20,1, bias=False),
-            'sprint': nn.Linear(20,1, bias=False)
+            'attack': nn.Linear(50,1, bias=False),
+            'back': nn.Linear(50,1, bias=False),
+            'camera': nn.Linear(50,2, bias=False),
+            'craft': nn.Linear(50,5, bias=False),
+            'equip': nn.Linear(50,8, bias=False),
+            'forward_': nn.Linear(50,1, bias=False),
+            'jump': nn.Linear(50,1, bias=False),
+            'left': nn.Linear(50,1, bias=False),
+            'nearbyCraft': nn.Linear(50,8, bias=False),
+            'nearbySmelt': nn.Linear(50,3, bias=False),
+            'place': nn.Linear(50,7, bias=False),
+            'right': nn.Linear(50,1, bias=False),
+            'sneak': nn.Linear(50,1, bias=False),
+            'sprint': nn.Linear(50,1, bias=False)
         })
         #self.action_modules_1["attack"].register_backward_hook(self.back_hook) 
 
@@ -102,30 +104,63 @@ class Actor_TS(nn.Module):
             'place':7, 'right':1, 'sneak':1, 'sprint':1}       
 
         self.output_action_activation_modules = nn.ModuleDict({
-            'attack': nn.Tanhshrink(),
-            'back': nn.Tanhshrink(),
-            'camera': nn.Tanhshrink(),
-            'craft': nn.Tanhshrink(),
-            'equip': nn.Tanhshrink(),
-            'forward_': nn.Tanhshrink(),
-            'jump': nn.Tanhshrink(),
-            'left': nn.Tanhshrink(),
-            'nearbyCraft': nn.Tanhshrink(),
-            'nearbySmelt': nn.Tanhshrink(),
-            'place': nn.Tanhshrink(),
-            'right': nn.Tanhshrink(),
-            'sneak': nn.Tanhshrink(),
-            'sprint': nn.Tanhshrink(),
+            'attack': nn.ReLU(),
+            'back': nn.ReLU(),
+            'camera': nn.Identity(),
+            'craft': nn.ReLU(),
+            'equip': nn.ReLU(),
+            'forward_': nn.ReLU(),
+            'jump': nn.ReLU(),
+            'left': nn.ReLU(),
+            'nearbyCraft': nn.ReLU(),
+            'nearbySmelt': nn.ReLU(),
+            'place': nn.ReLU(),
+            'right': nn.ReLU(),
+            'sneak': nn.ReLU(),
+            'sprint': nn.ReLU(),
         })
  
-       
-        self.normalize_rewards = nn.LayerNorm(self.seq_len)
 
+        self.output_action_normalize = nn.ModuleDict({
+            'attack': nn.BatchNorm1d(1),
+            'back': nn.BatchNorm1d(1),
+            'camera': nn.Identity(),
+            'craft': nn.BatchNorm1d(5),
+            'equip': nn.BatchNorm1d(8),
+            'forward_': nn.BatchNorm1d(1),
+            'jump': nn.BatchNorm1d(1),
+            'left': nn.BatchNorm1d(1),
+            'nearbyCraft': nn.BatchNorm1d(8),
+            'nearbySmelt': nn.BatchNorm1d(3),
+            'place': nn.BatchNorm1d(7),
+            'right': nn.BatchNorm1d(1),
+            'sneak': nn.BatchNorm1d(1),
+            'sprint': nn.BatchNorm1d(1),
+        })       
+        self.normalize_rewards = nn.BatchNorm1d(self.seq_len)
+
+
+        self.camera_pitch = nn.Sequential()
+        self.camera_pitch.add_module('norm', nn.BatchNorm1d(50))
+        self.camera_pitch.add_module('linear1', nn.Linear(50, 100, bias=False))
+        self.camera_pitch.add_module('tanhshrik1', nn.Tanhshrink())
+        self.camera_pitch.add_module('norm2', nn.BatchNorm1d(100))
+        self.camera_pitch.add_module('linear2', nn.Linear(100, 1, bias=False))
+        self.camera_pitch.add_module('tanhshrink2', nn.Tanhshrink())
+
+        self.camera_yaw = nn.Sequential()
+        self.camera_yaw.add_module('norm', nn.BatchNorm1d(50))
+        self.camera_yaw.add_module('linear1', nn.Linear(50, 100, bias=False))
+        self.camera_yaw.add_module('tanhshrik1', nn.Tanhshrink())
+        self.camera_yaw.add_module('norm2', nn.BatchNorm1d(100))
+        self.camera_yaw.add_module('linear2', nn.Linear(100, 1, bias=False))
+        self.camera_yaw.add_module('tanhshrink2', nn.Tanhshrink())
 
         self.qvalue = nn.Sequential()
-        self.qvalue.add_module('norm', nn.LayerNorm(20+action_size+1))
-        self.qvalue.add_module('linear1', nn.Linear(20+action_size+1, 100, bias=False))
+        self.qvalue.add_module('norm', nn.BatchNorm1d(50+action_size+1))
+        self.qvalue.add_module('linear1', nn.Linear(50+action_size+1, 100, bias=False))
         self.qvalue.add_module('relu1', nn.ReLU(inplace=True))
+        self.qvalue.add_module('norm2', nn.BatchNorm1d(100))
         self.qvalue.add_module('linear2', nn.Linear(100, 1, bias=False))
         self.qvalue.add_module('relu2', nn.ReLU(inplace=True))
 
@@ -179,6 +214,21 @@ class Actor_TS(nn.Module):
             nn.init.xavier_uniform_(self.output_action_modules[m].weight)
             #nn.init.constant_(self.action_modules_1[m].bias, 0)
 
+        for m in self.camera_pitch:
+            if isinstance(m, nn.Conv2d):
+                torch.nn.init.xavier_normal_(m.weight, gain=nn.init.calculate_gain('tanh'))
+                #nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight, gain=nn.init.calculate_gain('relu'))
+
+        for m in self.camera_yaw:
+            if isinstance(m, nn.Conv2d):
+                torch.nn.init.xavier_normal_(m.weight, gain=nn.init.calculate_gain('tanh'))
+                #nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight, gain=nn.init.calculate_gain('relu'))
+
+
         for m in self.qvalue:
             if isinstance(m, nn.Conv2d):
                 torch.nn.init.xavier_normal_(m.weight, gain=nn.init.calculate_gain('tanh'))
@@ -202,7 +252,7 @@ class Actor_TS(nn.Module):
         world_state = x.permute(0,2,1)
 
         agent_state_inventory = self.normalize_inventory(agent_state_inventory)
-        h0, c0 = self.init_hidden(batch_size, num_layers, 60)
+        h0, c0 = self.init_hidden(batch_size, num_layers, 100)
         agent_state_inventory, (hidden, cell) = self.inventory_lstm(agent_state_inventory, (h0, c0))
 
         agent_state_mh = self.normalize_mh(agent_state_mh)
@@ -225,6 +275,7 @@ class Actor_TS(nn.Module):
             out = self.output_action_modules[action](combined_state)
             #out = self.action_modules_1[action](combined_state)
             out = self.output_action_activation_modules[action](out)
+            out = self.output_action_normalize[action](out)
             #if not self.output_action_activation_modules.training:
             #    noise = np.random.normal(scale=0.05, size=out.shape)
             #    out = out + torch.tensor(noise).float().to(device)
@@ -245,8 +296,20 @@ class Actor_TS(nn.Module):
                 ones = torch.ones_like(out)
                 out = torch.where(out > 0.5, ones, zeros).float()
             elif action == "camera":
-                out = torch.clamp(out, min=-180, max=180)
-                out = out.float()
+                #out = torch.clamp(out, min=-180, max=180)
+                #out = out.float()/180.0
+
+                combined_state_2 = combined_state.detach()
+                yaw = self.camera_yaw(combined_state_2)
+                yaw = torch.clamp(yaw, min=-180, max=180)
+                print(yaw.shape)
+
+                pitch = self.camera_pitch(combined_state_2)
+                pitch = torch.clamp(pitch, min=-180, max=180)
+                print(pitch.shape)
+
+                out = torch.cat([pitch,yaw], axis=1)
+                print(out.shape)
                 action_logits.append(out)
                 #out /= 180.0
                                        
@@ -260,12 +323,12 @@ class Actor_TS(nn.Module):
             elif action != "camera":
                 actions[action] = out[-1].int().item()
             elif action == "camera":
-                actions[action] = out[-1].tolist()            
+                actions[action] = out[-1].tolist()   
+
 
       
         actions_raw = torch.cat(actions_raw, axis=1)
         z = torch.cat([combined_state, actions_raw], axis=1)
-
 
         q_value = self.qvalue(z)
         q_value = q_value.squeeze()

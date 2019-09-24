@@ -18,10 +18,11 @@ import torch.optim as optim
 import torchvision.transforms as transforms
 
 BUFFER_SIZE = int(5e4)  # replay buffer size
-BATCH_SIZE = 2         # minibatch size
+BATCH_SIZE = 4         # minibatch size
 GAMMA = 1.0            # discount factor
 TAU = 1e-5              # for soft update of target parameters
-LR_ACTOR = 1e-4         # learning rate of the actor 
+LR_ACTOR = 1e-5         # learning rate of the actor 
+
 LR_CRITIC = 1e-4        # learning rate of the critic
 WEIGHT_DECAY = 0.000   # L2 weight decay
 
@@ -66,21 +67,23 @@ class Agent_TS():
                 {'params':self.actor_local.normalize_mh.parameters()},\
                 {'params':self.actor_local.mh_lstm.parameters()},\
                 {'params':self.actor_local.cnn_mh_inventory.parameters()},\
-                {'params':self.actor_local.output_action_modules['attack'].parameters(), 'lr':1e-4},\
-                {'params':self.actor_local.output_action_modules['back'].parameters(), 'lr':1e-4},\
-                {'params':self.actor_local.output_action_modules['camera'].parameters(), 'lr':1e-4},\
-                {'params':self.actor_local.output_action_modules['craft'].parameters(), 'lr':1e-4},\
-                {'params':self.actor_local.output_action_modules['equip'].parameters(), 'lr':1e-4},\
-                {'params':self.actor_local.output_action_modules['forward_'].parameters(), 'lr':1e-4},\
-                {'params':self.actor_local.output_action_modules['jump'].parameters(), 'lr':1e-4},
-                {'params':self.actor_local.output_action_modules['left'].parameters(), 'lr':1e-4},\
-                {'params':self.actor_local.output_action_modules['nearbyCraft'].parameters(), 'lr':1e-4},\
-                {'params':self.actor_local.output_action_modules['nearbySmelt'].parameters(), 'lr':1e-4},\
-                {'params':self.actor_local.output_action_modules['place'].parameters(), 'lr':1e-4},\
-                {'params':self.actor_local.output_action_modules['right'].parameters(), 'lr':1e-4},\
-                {'params':self.actor_local.output_action_modules['sneak'].parameters(), 'lr':1e-4},\
-                {'params':self.actor_local.output_action_modules['sprint'].parameters(), 'lr':1e-4},\
-                {'params':self.actor_local.qvalue.parameters(), 'lr':1e-5},\
+                {'params':self.actor_local.output_action_modules['attack'].parameters()},\
+                {'params':self.actor_local.output_action_modules['back'].parameters()},\
+                #{'params':self.actor_local.output_action_modules['camera'].parameters()},\
+                {'params':self.actor_local.output_action_modules['craft'].parameters()},\
+                {'params':self.actor_local.output_action_modules['equip'].parameters()},\
+                {'params':self.actor_local.output_action_modules['forward_'].parameters()},\
+                {'params':self.actor_local.output_action_modules['jump'].parameters()},
+                {'params':self.actor_local.output_action_modules['left'].parameters()},\
+                {'params':self.actor_local.output_action_modules['nearbyCraft'].parameters()},\
+                {'params':self.actor_local.output_action_modules['nearbySmelt'].parameters()},\
+                {'params':self.actor_local.output_action_modules['place'].parameters()},\
+                {'params':self.actor_local.output_action_modules['right'].parameters()},\
+                {'params':self.actor_local.output_action_modules['sneak'].parameters()},\
+                {'params':self.actor_local.output_action_modules['sprint'].parameters()},\
+                {'params':self.actor_local.qvalue.parameters()},\
+                {'params':self.actor_local.camera_yaw.parameters()},\
+                {'params':self.actor_local.camera_pitch.parameters()},\
                 ], lr=LR_ACTOR)
         #self.actor_optimizer = optim.Adam(self.actor_local.parameters())
         self.actor_scheduler = optim.lr_scheduler.StepLR(self.actor_optimizer, step_size=1000, gamma=0.99)

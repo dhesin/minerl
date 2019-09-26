@@ -92,7 +92,9 @@ while True:
         print("reading new weights file")
         agent = Agent_TS(agent_mh_size = 3, agent_inventory_size = 18, \
             world_state_size = [3, 32, 64, 64], action_size=14, \
-            random_seed=0, seq_len = sequence_len, actor_chkpt_file="checkpoint_actor.pth")
+            random_seed=0, seq_len = sequence_len,\
+            actor_chkpt_file="checkpoint_actor.pth",\
+            critic_chkpt_file="checkpoint_critic.pth")
 
 
     if (done_1==False):

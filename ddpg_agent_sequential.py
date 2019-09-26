@@ -7,9 +7,9 @@ from PIL import Image
 from matplotlib.pyplot import imshow
 
 import model_sequential
-from model_sequential import Actor_TS
+from model_sequential import Actor_TS, Critic_TS
 reload(model_sequential)
-from model_sequential import Actor_TS
+from model_sequential import Actor_TS, Critic_TS
 
 
 import torch
@@ -20,7 +20,7 @@ import torchvision.transforms as transforms
 BUFFER_SIZE = int(5e4)  # replay buffer size
 BATCH_SIZE = 4         # minibatch size
 GAMMA = 1.0            # discount factor
-TAU = 1e-5              # for soft update of target parameters
+TAU = 1e-2              # for soft update of target parameters
 LR_ACTOR = 1e-5         # learning rate of the actor 
 
 LR_CRITIC = 1e-4        # learning rate of the critic
@@ -87,8 +87,19 @@ class Agent_TS():
                 ], lr=LR_ACTOR)
         #self.actor_optimizer = optim.Adam(self.actor_local.parameters())
         self.actor_scheduler = optim.lr_scheduler.StepLR(self.actor_optimizer, step_size=1000, gamma=0.99)
-        
         self.hard_copy_weights(self.actor_target, self.actor_local)
+
+
+
+        self.critic_local = Critic_TS(self.agent_mh_size, self.agent_inventory_size,\
+                self.world_state_size, self.action_size, 41, self.seed, self.seq_len).to(device)
+        self.critic_target = Critic_TS(self.agent_mh_size, self.agent_inventory_size,\
+                self.world_state_size, self.action_size, 41, self.seed, self.seq_len).to(device)
+        self.critic_optimizer = optim.Adam(self.critic_local.parameters())
+        self.critic_scheduler = optim.lr_scheduler.StepLR(self.critic_optimizer, step_size=1000, gamma=0.99)
+        self.hard_copy_weights(self.critic_target, self.critic_local)
+
+
 
         # Replay memory
         #self.memory = ReplayBuffer(self.action_size, BUFFER_SIZE, BATCH_SIZE, self.seed)
@@ -97,24 +108,11 @@ class Agent_TS():
 
         if 'actor_chkpt_file' in kwargs:
             checkpoint_actor = torch.load(kwargs['actor_chkpt_file'])
-            #checkpoint_critic = torch.load(kwargs['critic_chkpt_file'])
+            checkpoint_critic = torch.load(kwargs['critic_chkpt_file'])
             self.actor_local.load_state_dict(checkpoint_actor)
-            #self.critic_local.load_state_dict(checkpoint_critic)
-            #checkpoint_actor_t = torch.load(kwargs['actor_chkpt_file_t'])
-            #checkpoint_critic_t = torch.load(kwargs['critic_chkpt_file_t'])
-            #self.actor_target.load_state_dict(checkpoint_actor_t)
-            #self.critic_target.load_state_dict(checkpoint_critic_t)
-
-    # def flatten_action(self, action):
-        
-    #     action_flat = []
-    #     for x in action:
-    #         if type(x) is list:
-    #             for y in x:
-    #                 action_flat.append(y)
-    #         else:
-    #             action_flat.append(x)
-    #     return action_flat
+            self.critic_local.load_state_dict(checkpoint_critic)
+            self.hard_copy_weights(self.actor_target, self.actor_local)
+            self.hard_copy_weights(self.critic_target, self.critic_local)
 
     def get_states(self, mainhand, inventory, pov):
 
@@ -305,7 +303,7 @@ class Agent_TS():
         torch.nn.utils.clip_grad_norm_(self.actor_local.parameters(), 1)
         
         self.actor_optimizer.step()
-        #self.critic_optimizer.step()
+        self.critic_optimizer.step()
         
         return pitch_loss, yaw_loss
 
@@ -378,6 +376,72 @@ class Agent_TS():
         print("Actor Losses:{} {}".format(loss_1.item(), loss_2.item()))
         return loss_1, loss_2
 
+    def learn_3(self, experiences, gamma, writer):
+        
+        #states, actions, rewards, next_states, dones, indices, weights = experiences
+        #( a_states_mh, a_states_invent, w_states, actions, rewards, a_next_states_mh, a_next_states_invent, w_next_states, dones ) = experiences
+
+        #pil_img = transforms.ToPILImage()(experiences[0][2])
+        #imshow(pil_img)
+
+
+        a_states_mh = torch.tensor([item[0] for item in experiences]).float()
+        a_states_invent = torch.tensor([item[1] for item in experiences]).float()
+        w_states = torch.tensor([item[2] for item in experiences]).float()
+        actions = torch.tensor([item[3] for item in experiences]).float()
+        rewards = torch.tensor([item[4] for item in experiences]).float()
+        a_next_states_mh = torch.tensor([item[5] for item in experiences]).float()
+        a_next_states_invent = torch.tensor([item[6] for item in experiences]).float()
+        w_next_states = torch.tensor([item[7] for item in experiences]).float()
+        dones = torch.tensor([item[8] for item in experiences]).float()
+
+
+        a_states_mh = a_states_mh.to(device)
+        a_states_invent = a_states_invent.to(device)
+        w_states = w_states.to(device)
+        actions = actions.to(device)
+        rewards = rewards.to(device)
+
+        a_next_states_mh = a_next_states_mh.to(device)
+        a_next_states_invent = a_next_states_invent.to(device)
+        w_next_states = w_next_states.to(device)
+        dones = dones.to(device)
+
+        rewards = self.actor_local.normalize_rewards(rewards)
+
+
+        # update actor
+        _, action_raw, action_logits, _ = self.actor_local(a_states_mh, w_states, a_states_invent)
+        Q_current = self.critic_target(a_states_mh, w_states, a_states_invent, action_logits)
+        actor_loss = -Q_current.mean()
+
+        self.actor_optimizer.zero_grad()
+        torch.autograd.backward(actor_loss)
+        torch.nn.utils.clip_grad_norm_(self.actor_local.parameters(), 1)       
+        self.actor_optimizer.step()
+
+        writer.add_scalars('Actor Loss:', { "-Q_value": actor_loss}, global_step=self.iter)
+
+
+        _, action_raw_next, action_logits_next, _ = self.actor_target(a_next_states_mh, w_next_states, a_next_states_invent)
+        Q_next = self.critic_local(a_next_states_mh, w_next_states, a_next_states_invent, action_logits_next)
+        Q_current_2 = rewards[:,-1].squeeze() + (gamma * Q_next * (1 - dones[:,-1,:].squeeze()))
+        critic_loss = F.mse_loss(Q_current_2, Q_current.detach())
+
+        self.critic_optimizer.zero_grad()
+        torch.autograd.backward(critic_loss)
+        torch.nn.utils.clip_grad_norm_(self.critic_local.parameters(), 1)       
+        self.critic_optimizer.step()
+
+        writer.add_scalars('Critic Loss:', {"mse::":critic_loss}, global_step=self.iter)
+
+        for i in range(action_raw.shape[0]):
+            for k in range(action_raw.shape[1]):
+                label = "Action_" + action_names[k] + "_"
+                writer.add_scalars(label, {"GT":actions[i,-1,k], "Run":action_raw[i,k]}, global_step=self.iter_2)
+            self.iter_2 = self.iter_2+1
+
+
     
 class NaivePrioritizedBuffer(object):
     def __init__(self, capacity, batch_size, seed, prob_alpha=0.6):
@@ -394,7 +458,7 @@ class NaivePrioritizedBuffer(object):
     def add(self, experiences):
 
         if len(self.memory) < self.capacity:
-            print("event memory capacity below:{}".format(experiences[4].sum().item()))
+            #print("event memory capacity below:{}".format(experiences[4].sum().item()))
             self.memory.append(experiences)
         else:
             self.memory[self.pos] = experiences

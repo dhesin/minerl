@@ -358,6 +358,7 @@ class Actor_TS(nn.Module):
             elif action != "camera":
                 actions[action] = out[-1].int().item()
             elif action == "camera":
+                out[:,0] = out[:,0]/100.0
                 actions[action] = out[-1].tolist()   
 
 

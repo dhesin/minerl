@@ -20,7 +20,7 @@ import torchvision.transforms as transforms
 BUFFER_SIZE = int(5e4)  # replay buffer size
 BATCH_SIZE = 4         # minibatch size
 GAMMA = 1.0            # discount factor
-TAU = 1e-2              # for soft update of target parameters
+TAU = 1e-1              # for soft update of target parameters
 LR_ACTOR = 1e-5         # learning rate of the actor 
 
 LR_CRITIC = 1e-4        # learning rate of the critic

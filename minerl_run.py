@@ -33,7 +33,9 @@ sample_len = 1
 weight_file_timestamp = os.stat("checkpoint_actor.pth")[8]
 agent = Agent_TS(agent_mh_size = 3, agent_inventory_size = 18, \
         world_state_size = [3, 32, 64, 64], action_size=14, \
-        random_seed=0, seq_len = sequence_len, actor_chkpt_file="checkpoint_actor.pth")
+        random_seed=0, seq_len = sequence_len,\
+        actor_chkpt_file="checkpoint_actor.pth",\
+        critic_chkpt_file="checkpoint_critic.pth")
 
 #action_counts = np.zeros((action_s-1, 10), dtype=int)
 action_names = ("attack", "back", "craft", "equip",

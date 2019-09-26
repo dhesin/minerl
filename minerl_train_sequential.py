@@ -205,7 +205,6 @@ def extract_data_from_dict(current_state, action, reward, next_state, done):
     #print(concat_next_agent_invent)
     #experiences[-1][4] = experiences[-1][4]+entropy_t
     return experiences
- 
 
 
 
@@ -279,7 +278,15 @@ for epoch in range(10):
     for current_state, action, reward, next_state, done in data.sarsd_iter(num_epochs=1, max_sequence_len=sample_len, seed=0):
         done = np.delete(done, -1)
         experiences = extract_data_from_dict(current_state, action, reward, next_state, done)
-        agent.memory.add(experiences)
+
+        print(experiences[3])
+        actions_without_camera = np.hstack([experiences[3][:,0:2], experiences[3][:,4:]])
+        print(actions_without_camera)
+
+        if actions_without_camera.any() or experiences[4] > 0:
+            agent.memory.add(experiences)
+        else:
+            print("skipping ..")
         #print("memory size:{}".format(len(agent.memory.memory)))
         if (len(agent.memory.memory) >= BUFFER_SIZE):
             #agent.memory.update_priorities()

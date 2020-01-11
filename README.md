@@ -16,9 +16,9 @@ Minecraft is a rich environment in which to perform learning: it is an open-worl
 
 Minecraft is a rich environment in which to perform learning: it is an open-world environment, has sparse rewards, and has many innate task hierarchies and subgoals. Furthermore, it encompasses many of the problems that we must solve as we move towards more general AI (for example, what is the reward structure of “building a house”?). Besides all this, Minecraft has more than 90 million monthly active users, making it a good environment on which to collect a large-scale dataset.
 
-![](./minerlgif_1.gif) | ![](./minerlgif_2.gif)
+![](./content/minerlgif_1.gif) | ![](./content/minerlgif_2.gif)
 
-![](./minerlgif_3.gif) | ![](./minerlgif_4.gif)
+![](./content/minerlgif_3.gif) | ![](./content/minerlgif_4.gif)
 
 *Some of the stages of obtaining a diamond: obtaining wood, a stone pickaxe, iron, and diamond*
 
@@ -99,13 +99,13 @@ Agent state in Minecraft environment depends on sequence of actions it takes whi
 Through iterative process of action-state value prediction, action prediction and taking the predicted action in the environment along with rewards from the environment, the agent tries to learn the actor-critic nets. Iterative process provides the Agent with an increasing inventory of {State, Action, Reward, Next_State} quadruples with which learning happens off-policy while the Agent keeps interacting in the environment. Off-policy means, during learning, Agent uses previous quadruples of {State, Action, Reward, Next_State} which is obtained under different policy while acting with the most recent policy in the environment. In addition, inventory of {State, Action, Reward, Next_State} is called Replay Buffer which is one of the tricks employed by DDPG algorithm to make it converge. The Agent stores all past experiences, shuffles them to remove correlations in the training data and applies DDPG algorithm to update it's actor-critic network parameters.
 
 
-![](./StateActionRewardEnv.jpg)
+![](./content/StateActionRewardEnv.jpg)
 
 ### Learning the Critic Network - The Q Learning Side of DDPG
 
 Learning the critic network is closely related to the Q-Learning, another algorithm for learning  state-action values for dicrete state-action space. Both critic network and Q-Learning make use of Bellman Equations of Optimality as follows;
 
-![](./Q_Value_Bellman_1.jpg)
+![](./content/Q_Value_Bellman_1.jpg)
 
 where s' ~~ P is shorthand for saying that the next state, s', is sampled by the environment from a distribution P(.| s,a). This Bellman equation is the starting point for learning an approximator to Q<sup>*</sup>(s,a). Suppose the approximator is a neural network Q<sub>&#934;</sub>(s,a), with parameters &#934;, and that we have collected a set of transitions (s,a,r,s',d) (where d indicates whether state s' is terminal). We can set up a mean-squared Bellman error (MSBE) function, which tells us roughly how closely Q<sub>&#934;</sub>(s,a) comes to satisfying the Bellman equation:
 
@@ -117,13 +117,13 @@ Here, in evaluating (1-d), we’ve used a Python convention of evaluating True t
 
 Policy learning in DDPG is fairly simple. We want to learn a deterministic policy &#956;<sub>&#952;</sub>(s) which gives the action that maximizes Q<sub>&#934;</sub>(s,a). Because the action space is continuous, and we assume the Q-function is differentiable with respect to action, we can just perform gradient ascent (with respect to policy parameters &#952; only) to solve
 
-![](./Q_Value_maximize.jpg)
+![](./content/Q_Value_maximize.jpg)
 
 In other words, performance objective for the policy is chosen as the value function of the target policy, averaged over the state distribution of the behaviour policy
 
-![](./PolicyValue_1.jpg)
+![](./content/PolicyValue_1.jpg)
 
-![](./PolicyValue_2.jpg)
+![](./content/PolicyValue_2.jpg)
 
 ## References
 

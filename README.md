@@ -109,13 +109,25 @@ Learning the critic network is closely related to the Q-Learning, another algori
 
 where s' ~~ P is shorthand for saying that the next state, s', is sampled by the environment from a distribution P(.| s,a). This Bellman equation is the starting point for learning an approximator to Q<sup>*</sup>(s,a). Suppose the approximator is a neural network Q<sub>&#934;</sub>(s,a), with parameters &#934;, and that we have collected a set of transitions (s,a,r,s',d) (where d indicates whether state s' is terminal). We can set up a mean-squared Bellman error (MSBE) function, which tells us roughly how closely Q<sub>&#934;</sub>(s,a) comes to satisfying the Bellman equation:
 
-![](./Q_Value_MSE.jpg)
 
-Here, in evaluating (1-d), we’ve used a Python convention of evaluating True to 1 and False to zero. Thus, when d==True — which is to say, when s' is a terminal state — the Q-function should show that the agent gets no additional rewards after the current state. (This choice of notation corresponds to what we later implement in code.)
 
+Here, in evaluating (1-d), we’ve used a Python convention of evaluating True to one and False to zero. Thus, when d==True — which is to say, when s' is a terminal state — the Q-function should show that the agent gets no additional rewards after the current state. (This choice of notation corresponds to what we later implement in code.)
+
+### Learning the Actor Network - The Policy Learning Side of DDPG
+
+Policy learning in DDPG is fairly simple. We want to learn a deterministic policy &#956;<sub>&#952;</sub>(s) which gives the action that maximizes Q<sub>&#934;</sub>(s,a). Because the action space is continuous, and we assume the Q-function is differentiable with respect to action, we can just perform gradient ascent (with respect to policy parameters &#952; only) to solve
+
+![](./Q_Value_maximize.jpg)
+
+In other words, performance objective for the policy is chosen as the value function of the target policy, averaged over the state distribution of the behaviour policy
+
+![](./PolicyValue_1.jpg)
+
+![](./PolicyValue_2.jpg)
 
 ## References
 
 1. https://www.aicrowd.com/challenges/neurips-2019-minerl-competition#competition-structure
 2. http://minerl.io/docs/environments/index.html
 3. https://spinningup.openai.com/en/latest/algorithms/ddpg.html
+4. Determinitic Policy Gradient Algorithms http://proceedings.mlr.press/v32/silver14.pdf

@@ -105,7 +105,7 @@ Inventory of {State, Action, Reward, Next_State} is called Replay Buffer which i
 
 ### Learning the Critic Network - The Q Learning Side of DDPG
 
-Learning the critic network is closely related to the Q-Learning, another algorithm for learning  state-action values for dicrete state-action space. Both critic network and Q-Learning make use of Bellman Equations of Optimality as follows;
+Learning the critic network is closely related to the Q-Learning, another algorithm for learning  state-action values for dicrete state-action space. Both critic network and Q-Learning make use of Bellman Equations of Optimality as follows;pip3 install --upgrade minerl
 
 ![](./content/Q_Value_Bellman_1.jpg)
 
@@ -126,9 +126,34 @@ In other words, performance objective for the policy is chosen as the value func
 
 ![](./content/PolicyValue_2.jpg)
 
+## Hardware/Software Environment
+
+I have used GPU Quadro M3000M enabled machine with CUDA Version 10.1, PyTorch 1.2.0 to run and implement the DDPG agent. For installation of Minerl and required packages refer to [5]. I have setup both docker and conda environments. Docker is my preffered environment but since it is headless and MineRL GUI is not setup for headless environments, you cannot see the agent in action. I have used docker during training but to see the agent in action I have switched to conda environment.
+
+Competition organizers provided data from expert players to train the agent for sample efficient learning. You can download all the data as follows;
+```
+import minerl
+minerl.data.download(directory="PATH_TO_MINERL_DIRECTORY/data")
+```
+
+Once you have a docker image (here it is named minerl) do the following;
+```
+docker run --gpus all -v PATH_TO_MINERL_DIRECTORY:/workspace  -it minerl
+```
+For the above docker command to run natively with GPU support, you need docker version 19.03 or higher.
+
+When you are in the docker minerl container, you can run the training as follows;
+```
+xvfb-run python3 minerl_train_sequention.py
+```
+
+During trainig, trained network parameters are saved periodically as checkpoint_actor.pth and checkpoint_critic.pth. Saved network parameters are read by minerl_run.py to observe the agent in action. minerl_run.py runs in the conda environment to be able to run the GUI.
+
+
 ## References
 
 1. https://www.aicrowd.com/challenges/neurips-2019-minerl-competition#competition-structure
 2. http://minerl.io/docs/environments/index.html
 3. https://spinningup.openai.com/en/latest/algorithms/ddpg.html
-4. Determinitic Policy Gradient Algorithms http://proceedings.mlr.press/v32/silver14.pdf
+4. [Determinitic Policy Gradient Algorithms](http://proceedings.mlr.press/v32/silver14.pdf)
+5. http://minerl.io/docs/tutorials/index.html#

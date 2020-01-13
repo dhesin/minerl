@@ -149,6 +149,11 @@ xvfb-run python3 minerl_train_sequention.py
 
 During trainig, trained network parameters are saved periodically as checkpoint_actor.pth and checkpoint_critic.pth. Saved network parameters are read by minerl_run.py to observe the agent in action. minerl_run.py runs in the conda environment to be able to run the GUI.
 
+After activating conda environment, run the following
+```
+python3 minerl_run.py
+```
+
 
 ## References
 

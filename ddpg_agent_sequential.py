@@ -463,7 +463,7 @@ class NaivePrioritizedBuffer(object):
         else:
             self.memory[self.pos] = experiences
 
-        self.priorities[self.pos] = experiences[4]+0.01
+        self.priorities[self.pos] = 0.01
 
         if (random.random()<0.005 and experiences[4] < 1):
             self.lottery.append(self.pos)

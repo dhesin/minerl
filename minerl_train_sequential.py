@@ -26,25 +26,31 @@ from ddpg_agent_sequential import BATCH_SIZE, TAU
 #imshow(pil_img)
 
 
-
+# MineRL environment returns experience tuples of (current_state, action, reward, next_state, done)
+# as dictionaries. Each dictionary contains time sequence of data as requested by the user such as
+# t consecutive current state, t consecutive action, etc. These time sequenced dictionary data is extracted 
+# and put into memory to be processed by actor-critic network
 def extract_data_from_dict(current_state, action, reward, next_state, done):
 
     equipments = {"none":1, 'air':2, 'wooden_axe':3, 'wooden_pickaxe':4, 
               'stone_axe':5, 'stone_pickaxe':6, 'iron_axe':7, 'iron_pickaxe':8}
 
 
-    # current state
+    # current state consists of mainhand, inventory and pov (first person view)
     mainhand = current_state['equipped_items']['mainhand']
     inventory = current_state['inventory']
     pov = current_state['pov']
 
 
+    # mainhand has tool of given type with properties damage and maxDamage
+    # tool is lost after it got damage of MaxDamage
     agent_mh = []
     agent_mh.append(mainhand['damage'])
     agent_mh.append(mainhand['maxDamage'])
     agent_mh.append(mainhand['type'])
     
 
+    # obtained tools of the agent in the environment
     agent_inventory = []
     agent_inventory.append(inventory['coal'])
     agent_inventory.append(inventory['cobblestone'])
@@ -66,11 +72,13 @@ def extract_data_from_dict(current_state, action, reward, next_state, done):
     agent_inventory.append(inventory['wooden_pickaxe'])
 
 
+
     vertical_agent_mh = [np.vstack(item) for item in agent_mh]
     vertical_agent_invent = [np.vstack(item) for item in agent_inventory]
     concat_agent_mh = np.concatenate(vertical_agent_mh, axis=1)
     concat_agent_invent = np.concatenate(vertical_agent_invent, axis=1)
-    
+
+    # change the order of d,w,h to w,h,d as PyTorch expects
     swap_world_state = [np.swapaxes(item,0,2) for item in pov]
     vertical_world_state = np.stack(swap_world_state, axis=0)
     vertical_world_state = np.swapaxes(vertical_world_state, 0, 1)
@@ -78,9 +86,7 @@ def extract_data_from_dict(current_state, action, reward, next_state, done):
     #[print(item.shape) for item in vertical_world_state] 
 
     
-    
-    
-    # next_state
+    # next_state consists of mainhand, inventory and pov (first person view)
     mainhand = next_state['equipped_items']['mainhand']
     inventory = next_state['inventory']
     pov = next_state['pov']
@@ -123,8 +129,9 @@ def extract_data_from_dict(current_state, action, reward, next_state, done):
     vertical_next_world_state = np.swapaxes(vertical_next_world_state, 0, 1)
     #print(vertical_next_world_state.shape)
     
-    # get action list
+    # get list of actions executed
     
+    # action for camera pitch and yaw are real numbers
     cam_0 = action["camera"][:,0]
     cam_1 = action["camera"][:,1]
     #print(cam_0)
@@ -275,13 +282,13 @@ def learn_from_buffer(num_batches):
 
 # Put data into memory
 for epoch in range(10):
-    for current_state, action, reward, next_state, done in data.sarsd_iter(num_epochs=1, max_sequence_len=sample_len, seed=0):
+    for current_state, action, reward, next_state, done in data.sarsd_iter(num_epochs=1, max_sequence_len=2, seed=0):
         done = np.delete(done, -1)
         experiences = extract_data_from_dict(current_state, action, reward, next_state, done)
 
-        print(experiences[3])
+        #print(experiences[3])
         actions_without_camera = np.hstack([experiences[3][:,0:2], experiences[3][:,4:]])
-        print(actions_without_camera)
+        #print(actions_without_camera)
 
         if actions_without_camera.any() or experiences[4] > 0:
             agent.memory.add(experiences)
